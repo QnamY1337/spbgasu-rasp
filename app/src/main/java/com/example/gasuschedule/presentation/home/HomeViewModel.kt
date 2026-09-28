@@ -2,6 +2,7 @@ package com.example.gasuschedule.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gasuschedule.domain.model.DayWeather
 import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.HomeworkGroup
 import com.example.gasuschedule.domain.model.HomeworkItem
@@ -12,6 +13,7 @@ import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.repository.WeatherRepository
 import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
 import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.domain.usecase.SyncResult
@@ -62,6 +64,8 @@ data class HomeUiState(
     val mode: TravelMode = TravelMode.TRANSIT,
     /** Невыполненные задания со сроком сегодня/завтра или просроченные. */
     val urgentHomework: List<HomeworkItem> = emptyList(),
+    /** Погода на сегодня; null — не загрузилась (блок тогда не показываем). */
+    val weather: DayWeather? = null,
     val refreshing: Boolean = false,
 ) {
     val today: LocalDate get() = now.toLocalDate()
@@ -76,6 +80,7 @@ class HomeViewModel @Inject constructor(
     private val sync: SyncScheduleUseCase,
     private val clock: Clock,
     homework: HomeworkRepository,
+    private val weatherRepository: WeatherRepository,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
@@ -100,7 +105,13 @@ class HomeViewModel @Inject constructor(
 
     private val road = combine(preferences.home, preferences.travelMode, preferences.leaveBufferMinutes, ::Triple)
 
-    val state: StateFlow<HomeUiState> = combine(data, road, now, refreshing, homework.observeAll()) { (group, lessons, weeks), (home, mode, buffer), now, refreshing, tasks ->
+    val state: StateFlow<HomeUiState> = combine(
+        data,
+        road,
+        now,
+        combine(refreshing, weatherRepository.weather, ::Pair),
+        homework.observeAll(),
+    ) { (group, lessons, weeks), (home, mode, buffer), now, (refreshing, weather), tasks ->
         val byDate = lessons.groupBy { it.date }
         val shown = shownDate(byDate, now)
         HomeUiState(
@@ -117,6 +128,7 @@ class HomeViewModel @Inject constructor(
             home = home,
             mode = mode,
             refreshing = refreshing,
+            weather = weather,
             urgentHomework = tasks.filter { HomeworkPlanning.group(it, now.toLocalDate()) == HomeworkGroup.URGENT }
                 .sortedWith(compareBy(nullsLast()) { it.dueDate }),
         )
@@ -136,6 +148,8 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
+        // Погода: при открытии и при смене адреса дома (прогноз берётся для дома).
+        viewModelScope.launch { preferences.home.collect { weatherRepository.refreshIfStale() } }
         // Главная — стартовый экран: если данные устарели, обновляем при открытии.
         viewModelScope.launch {
             val last = preferences.lastSyncAt.first()

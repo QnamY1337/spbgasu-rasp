@@ -54,7 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.gasuschedule.domain.model.DayWeather
 import com.example.gasuschedule.domain.model.TravelMode
+import com.example.gasuschedule.domain.model.WeatherPlace
 import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.common.YandexMaps
@@ -182,7 +184,7 @@ private fun HomeContent(
         contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { WeatherSlot(side) }
+        state.weather?.let { weather -> item { WeatherCard(weather, side) } }
         state.commute?.let { commute ->
             item { CommuteCard(commute, state, onOpenSettings, side) }
         }
@@ -258,9 +260,9 @@ private fun HeaderContent(state: HomeUiState) {
     }
 }
 
-/** Место под погоду на день (появится в фазе 10). */
+/** Погода на сегодня: сейчас, днём/ночью, осадки и подсказка про зонт. */
 @Composable
-private fun WeatherSlot(modifier: Modifier = Modifier) {
+private fun WeatherCard(weather: DayWeather, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -269,14 +271,40 @@ private fun WeatherSlot(modifier: Modifier = Modifier) {
         border = BorderStroke(1.dp, scheme.outlineVariant),
     ) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("☁", style = MaterialTheme.typography.headlineMedium, color = GasuTheme.colors.textFaint)
+            Text(weather.icon, style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.size(12.dp))
+            Text(
+                signedTemp(weather.tempC),
+                style = MonoStyles.time.copy(fontSize = 28.sp, lineHeight = 32.sp),
+                color = scheme.onSurface,
+            )
             Spacer(Modifier.size(14.dp))
-            Column {
-                Text("Погода — скоро", style = MaterialTheme.typography.titleSmall, color = scheme.onSurfaceVariant)
-                Text("Здесь появится погода на день", style = MaterialTheme.typography.bodySmall, color = GasuTheme.colors.textFaint)
+            Column(Modifier.weight(1f)) {
+                Text(weather.condition, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "${signedTemp(weather.tempMin)}…${signedTemp(weather.tempMax)} · " +
+                        if (weather.place == WeatherPlace.HOME) "у дома" else "у вуза",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                )
+                weather.precipitationChance?.let { chance ->
+                    Text(
+                        if (weather.umbrella) "Осадки до $chance% — возьмите зонт" else "Осадки до $chance%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (weather.umbrella) scheme.primary else scheme.onSurfaceVariant,
+                        fontWeight = if (weather.umbrella) FontWeight.SemiBold else null,
+                    )
+                }
             }
         }
     }
+}
+
+/** "+11°", "−3°", "0°" — со знаком, как в прогнозах. */
+internal fun signedTemp(t: Int): String = when {
+    t > 0 -> "+$t°"
+    t < 0 -> "−${-t}°"
+    else -> "0°"
 }
 
 @Composable

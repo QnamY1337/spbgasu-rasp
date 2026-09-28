@@ -8,6 +8,7 @@ import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import com.example.gasuschedule.testutil.FakeHomeworkRepository
 import com.example.gasuschedule.testutil.FakePreferences
 import com.example.gasuschedule.testutil.FakeReplanTrigger
+import com.example.gasuschedule.testutil.FakeWeatherRepository
 import com.example.gasuschedule.testutil.FakeScheduleRepository
 import com.example.gasuschedule.testutil.FakeWidgetUpdater
 import com.example.gasuschedule.testutil.MainDispatcherRule
@@ -92,6 +93,7 @@ class HomeTest {
             SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock, FakeReplanTrigger(), FakeWidgetUpdater()),
             clock,
             FakeHomeworkRepository(),
+            FakeWeatherRepository(),
         )
         val state = vm.state.first { it.loaded }
         assertEquals(d(28), state.shownDate)
