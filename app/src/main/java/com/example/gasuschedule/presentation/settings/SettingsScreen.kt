@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -79,6 +80,8 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
     val context = LocalContext.current
     var permissions by remember { mutableStateOf(ReminderPermissions.read(context)) }
     var widget by remember { mutableStateOf(WidgetPin.state(context)) }
+    var showWidgetHelp by remember { mutableStateOf(false) }
+    if (showWidgetHelp && widget.installed == 0) WidgetHelpDialog(onDismiss = { showWidgetHelp = false })
     // Разрешения меняются в системных настройках — перечитываем при каждом возвращении на экран.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         widget = WidgetPin.state(context)
@@ -97,7 +100,10 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
         state = state,
         permissions = permissions,
         widget = widget,
-        onAddWidget = { WidgetPin.request(context) },
+        onAddWidget = {
+            if (widget.canRequest) WidgetPin.request(context)
+            showWidgetHelp = true
+        },
         snackbar = snackbar,
         onChangeGroup = onChangeGroup,
         onRemindersEnabled = { viewModel.setRemindersEnabled(it) },
@@ -372,23 +378,41 @@ private fun WidgetRow(widget: WidgetPin.State, onAdd: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("Виджет на главном экране", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        when {
-            widget.installed > 0 -> Text(
+        if (widget.installed > 0) {
+            Text(
                 "Добавлен",
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant,
                 modifier = Modifier.padding(end = 8.dp),
             )
-            widget.canRequest -> TextButton(onClick = onAdd) { Text("Добавить", fontWeight = FontWeight.SemiBold) }
-            else -> Text(
-                "Через меню\nрабочего стола",
-                style = MaterialTheme.typography.bodySmall,
-                color = scheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
-                modifier = Modifier.padding(end = 8.dp),
-            )
+        } else {
+            TextButton(onClick = onAdd) { Text("Добавить", fontWeight = FontWeight.SemiBold) }
         }
     }
+}
+
+/**
+ * Некоторые лаунчеры (vivo, Xiaomi и др.) сообщают, что умеют закреплять виджеты, но молча
+ * игнорируют запрос — из приложения это не отличить. Поэтому вместе с запросом всегда
+ * показываем, как добавить виджет вручную; если он добавился — окно закроется само.
+ */
+@Composable
+private fun WidgetHelpDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Понятно") } },
+        title = { Text("Добавьте виджет с рабочего стола") },
+        text = {
+            Text(
+                "Если окно добавления не появилось, лаунчер телефона не поддерживает добавление из приложения. " +
+                    "Добавьте вручную:\n\n" +
+                    "1. Удерживайте палец на пустом месте рабочего стола (на vivo можно свести два пальца).\n" +
+                    "2. Откройте «Виджеты».\n" +
+                    "3. Найдите «Расписание СПбГАСУ» → «Ближайшая пара» и перетащите на экран.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+    )
 }
 
 @Composable
