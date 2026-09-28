@@ -1,7 +1,11 @@
 # Расписание СПбГАСУ
 
 Android-приложение (Kotlin, Jetpack Compose) с расписанием пар СПбГАСУ, напоминаниями и отслеживанием замен.
-Разработка идёт по фазам; сейчас готова **фаза 1 — разведка источника и прототип парсера**.
+Разработка идёт по фазам. Готово:
+
+- **Фаза 1** — разведка источника и парсер расписания.
+- **Фаза 2** — Room (пары, недели, замены, задания, экзамены), репозитории, DataStore, Hilt, use case'ы
+  и поиск замен сравнением снепшотов.
 
 ## Сборка и тесты
 
@@ -30,15 +34,35 @@ Android-приложение (Kotlin, Jetpack Compose) с расписанием
   `421(1)/Г<br>421(2)/Г`. Аудитории бывают вида `406*/К`, `Актовый зал/Г`.
 - Резервный `GET /getExcel.php?TYPE=GROUPS&FIND=…` отвечает `.xlsx` (application/vnd.ms-excel).
 
+## Как ищутся замены
+
+Сайт не отдаёт список замен, поэтому `SyncScheduleUseCase` при каждой синхронизации сравнивает свежее
+расписание с сохранённым (`ScheduleDiffer`) по слотам «дата + номер пары»:
+
+- первая синхронизация замен не даёт, прошедшие дни не сравниваются;
+- сравниваются только недели, которые есть в обоих снепшотах: публикация новой недели — не «добавленные пары»;
+- подгруппы в одном слоте сопоставляются сначала целиком, потом по предмету, потом по порядку —
+  перестановка подгрупп на сайте замен не даёт;
+- если сайт вдруг вернул пустое расписание, а раньше пары были, снепшот не перезаписывается.
+
+Типы замен: `SUBJECT` (включая смену лекции на практику), `ROOM`, `TEACHER`, `CANCELLED`, `ADDED`.
+
 ## Структура
 
 ```
 app/src/main/java/com/example/gasuschedule/
-├── data/remote/
-│   ├── ScheduleRemoteSource.kt   — интерфейс источника (можно подменить на Excel)
-│   ├── BitrixScheduleSource.kt   — OkHttp-клиент: сессия, CSRF, повтор
-│   ├── ScheduleHtmlParser.kt     — Jsoup: HTML -> SemesterSchedule(weeks, lessons)
-│   ├── MainPageParser.kt         — токен и список групп с главной
-│   └── dto/BitrixAjaxResponse.kt — success / invalid_csrf / error
-└── domain/model/Lesson.kt
+├── data/
+│   ├── remote/      — BitrixScheduleSource (сессия, CSRF), ScheduleHtmlParser, MainPageParser
+│   ├── local/       — Room: AppDatabase, сущности, dao/, prefs/ (DataStore)
+│   └── repository/  — реализации репозиториев
+├── domain/
+│   ├── model/       — Lesson, ScheduleWeek, ScheduleChange, HomeworkItem, ExamEntry, ошибки
+│   ├── repository/  — интерфейсы
+│   └── usecase/     — SyncSchedule, ScheduleDiffer, GetTodaySchedule, GetWeekSchedule
+└── di/              — Hilt: NetworkModule, DatabaseModule, RepositoryModule
 ```
+
+Схема БД экспортируется в `app/schemas/` — при изменении сущностей нужна миграция и новая версия БД.
+
+Тесты Room идут на Robolectric: образ Android скачивает Gradle в `~/.gradle/robolectric-jars`
+(встроенный загрузчик Robolectric здесь падал на SSL, а из пути с пробелами не грузится нативная библиотека).

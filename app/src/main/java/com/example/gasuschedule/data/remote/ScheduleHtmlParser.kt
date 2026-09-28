@@ -2,6 +2,7 @@ package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.LessonType
+import com.example.gasuschedule.domain.model.ScheduleParseException
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.domain.model.WeekParity
@@ -12,7 +13,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-class ScheduleParseException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * Разбирает HTML-фрагмент из ответа getRasp в расписание на семестр.

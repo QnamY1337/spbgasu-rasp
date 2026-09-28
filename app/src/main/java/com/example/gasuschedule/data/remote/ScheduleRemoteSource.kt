@@ -14,4 +14,3 @@ interface ScheduleRemoteSource {
     suspend fun fetchGroups(): List<String>
 }
 
-class ScheduleNetworkException(message: String, cause: Throwable? = null) : Exception(message, cause)

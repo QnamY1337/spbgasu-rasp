@@ -2,6 +2,7 @@ package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.data.remote.dto.BitrixAjaxResponse
 import com.example.gasuschedule.domain.model.LessonType
+import com.example.gasuschedule.domain.model.ScheduleParseException
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.domain.model.WeekParity
 import org.junit.Assert.assertEquals

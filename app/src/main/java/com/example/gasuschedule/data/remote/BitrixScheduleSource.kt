@@ -1,6 +1,7 @@
 package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.data.remote.dto.BitrixAjaxResponse
+import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex

@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:name=".GasuScheduleApp"
         android:allowBackup="true"
         android:label="Расписание СПбГАСУ"
         android:supportsRtl="true" />

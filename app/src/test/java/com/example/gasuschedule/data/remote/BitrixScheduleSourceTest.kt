@@ -1,5 +1,6 @@
 package com.example.gasuschedule.data.remote
 
+import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
