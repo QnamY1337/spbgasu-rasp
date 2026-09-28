@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.TravelMode
@@ -149,7 +150,12 @@ private fun Header(state: HomeUiState) {
             }
         }
         Spacer(Modifier.height(10.dp))
-        Text(dayTitle(state.today), style = MaterialTheme.typography.headlineMedium, color = colors.onHeader)
+        Text(
+            dayTitle(state.today),
+            // В 2 раза меньше headlineMedium (26 sp) — по просьбе, чтобы шапка была компактнее.
+            style = MaterialTheme.typography.headlineMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
+            color = colors.onHeader,
+        )
         state.group?.let {
             Text(it, style = MonoStyles.label, color = colors.onHeaderMuted, modifier = Modifier.padding(top = 4.dp))
         }
