@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +66,7 @@ import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.presentation.changes.ChangesRoute
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.lessondetail.LessonDetailSheet
+import com.example.gasuschedule.presentation.session.SessionTab
 import com.example.gasuschedule.presentation.settings.ReminderPermissions
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
@@ -74,6 +77,7 @@ import java.time.LocalDate
 private const val TAB_TODAY = 0
 private const val TAB_WEEK = 1
 private const val TAB_CHANGES = 2
+private const val TAB_SESSION = 3
 
 /**
  * @param unseenChanges число непросмотренных замен — бейдж на вкладке "Замены".
@@ -182,6 +186,7 @@ fun ScheduleScreen(
             ) {
                 when {
                     tab == TAB_CHANGES -> ChangesRoute()
+                    tab == TAB_SESSION -> SessionTab()
                     !state.loaded -> Unit
                     state.weeks.isEmpty() && state.lessonsByDate.isEmpty() -> EmptySchedule(state.isRefreshing, onRefresh)
                     tab == TAB_TODAY -> TodayTab(state, onSelectDate)
@@ -243,8 +248,14 @@ private fun Header(group: String, pill: String?, onGroupClick: () -> Unit) {
 private fun Tabs(selected: Int, unseenChanges: Int, onSelect: (Int) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Column {
-        Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            listOf("Сегодня", "Неделя", "Замены").forEachIndexed { i, title ->
+        // Четыре вкладки могут не поместиться на узком экране — ряд прокручивается.
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            listOf("Сегодня", "Неделя", "Замены", "Сессия").forEachIndexed { i, title ->
                 val active = i == selected
                 Column(
                     Modifier
