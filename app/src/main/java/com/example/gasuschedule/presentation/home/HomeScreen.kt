@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,10 +33,20 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,6 +73,7 @@ import com.example.gasuschedule.presentation.theme.MonoStyles
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import kotlin.math.roundToInt
 
 @Composable
 fun HomeRoute(onOpenSettings: () -> Unit, viewModel: HomeViewModel = hiltViewModel()) {
@@ -89,26 +102,70 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
-        // Шапка неподвижна над списком (как на экране расписания): внутри прокрутки
-        // отступ под статус-бар не срабатывал, и "СПБГАСУ" наезжало на часы.
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            Header(state)
+        val listState = rememberLazyListState()
+        val collapse = remember { HeaderCollapse() }
+        val scrollConnection = remember(listState, collapse) { collapse.connection { listState.canScrollBackward } }
+        // Шапка — над списком (внутри прокрутки не срабатывал отступ под статус-бар),
+        // и сворачивается вместе с прокруткой списка.
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .nestedScroll(scrollConnection),
+        ) {
+            Header(state, collapse)
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = onRefresh,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
-                if (state.loaded) HomeContent(state, onOpenSettings)
+                if (state.loaded) HomeContent(state, onOpenSettings, listState)
             }
         }
     }
 }
 
+/**
+ * Сворачивание шапки при прокрутке. [offsetPx] — на сколько шапка уже свёрнута:
+ * 0 — раскрыта, [maxPx] — надписи полностью скрыты, остаётся только кирпичная полоса под статус-баром.
+ */
+@Stable
+class HeaderCollapse {
+    var maxPx by mutableFloatStateOf(0f)
+    var offsetPx by mutableFloatStateOf(0f)
+    val fraction: Float get() = if (maxPx <= 0f) 0f else (offsetPx / maxPx).coerceIn(0f, 1f)
+
+    /** Сдвиг на dy (как в прокрутке: dy < 0 — листаем вниз). Возвращает съеденную часть dy. */
+    fun consume(dy: Float): Float {
+        val old = offsetPx
+        offsetPx = (offsetPx - dy).coerceIn(0f, maxPx)
+        return old - offsetPx
+    }
+
+    /**
+     * Листаем вниз — сначала сворачивается шапка, потом едет список.
+     * Листаем вверх — шапка раскрывается, только когда список уже в самом начале;
+     * остаток жеста достаётся pull-to-refresh.
+     */
+    fun connection(listCanScrollBack: () -> Boolean) = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            val dy = available.y
+            val consumed = when {
+                dy < 0 -> consume(dy)
+                dy > 0 && !listCanScrollBack() -> consume(dy)
+                else -> 0f
+            }
+            return Offset(0f, consumed)
+        }
+    }
+}
+
 @Composable
-private fun HomeContent(state: HomeUiState, onOpenSettings: () -> Unit) {
+private fun HomeContent(state: HomeUiState, onOpenSettings: () -> Unit, listState: LazyListState) {
     val timings = remember(state.lessons, state.now) { lessonTimings(state.lessons, state.now) }
     val side = Modifier.padding(horizontal = 20.dp)
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -128,15 +185,39 @@ private fun HomeContent(state: HomeUiState, onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun Header(state: HomeUiState) {
+private fun Header(state: HomeUiState, collapse: HeaderCollapse) {
     val colors = GasuTheme.colors
+    // Кирпичная полоса под статус-баром остаётся всегда; содержимое под ней сжимается и тает.
     Column(
         Modifier
             .fillMaxWidth()
             .background(colors.header)
             .statusBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 22.dp),
+            .clipToBounds(),
     ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    collapse.maxPx = placeable.height.toFloat()
+                    val offset = collapse.offsetPx.roundToInt()
+                    layout(placeable.width, (placeable.height - offset).coerceAtLeast(0)) {
+                        placeable.place(0, -offset)
+                    }
+                }
+                .graphicsLayer { alpha = 1f - collapse.fraction }
+                .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 22.dp),
+        ) {
+            HeaderContent(state)
+        }
+    }
+}
+
+@Composable
+private fun HeaderContent(state: HomeUiState) {
+    val colors = GasuTheme.colors
+    Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("СПБГАСУ", style = MaterialTheme.typography.labelMedium, color = colors.onHeaderMuted, modifier = Modifier.weight(1f))
             state.week?.let {
