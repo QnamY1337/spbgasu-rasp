@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.repository.WeatherRepository
 import com.example.gasuschedule.domain.usecase.SyncResult
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import dagger.assisted.Assisted
@@ -23,6 +24,7 @@ class SyncWorker @AssistedInject constructor(
     private val repository: ScheduleRepository,
     private val preferences: UserPreferencesRepository,
     private val clock: Clock,
+    private val weather: WeatherRepository,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -31,6 +33,8 @@ class SyncWorker @AssistedInject constructor(
         if (!forced && !BackgroundSyncPolicy.shouldSync(ZonedDateTime.now(clock), preferences.lastSyncAt.first())) {
             return Result.success()
         }
+        // Погоду обновляем вместе с расписанием; её ошибки ни на что не влияют.
+        weather.refreshIfStale()
         return when (val result = sync(group)) {
             is SyncResult.Success -> {
                 if (result.changes.isNotEmpty() && preferences.changeNotificationsEnabled.first()) {

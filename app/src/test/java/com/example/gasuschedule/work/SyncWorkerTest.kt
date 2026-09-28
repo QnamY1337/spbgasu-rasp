@@ -14,6 +14,7 @@ import com.example.gasuschedule.domain.usecase.ScheduleDiffer
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import com.example.gasuschedule.testutil.FakePreferences
 import com.example.gasuschedule.testutil.FakeReplanTrigger
+import com.example.gasuschedule.testutil.FakeWeatherRepository
 import com.example.gasuschedule.testutil.FakeWidgetUpdater
 import com.example.gasuschedule.testutil.FakeScheduleRepository
 import com.example.gasuschedule.testutil.clockAt
@@ -55,7 +56,7 @@ class SyncWorkerTest {
     private fun worker(): SyncWorker = TestListenableWorkerBuilder<SyncWorker>(context)
         .setWorkerFactory(object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, params: WorkerParameters): ListenableWorker =
-                SyncWorker(appContext, params, sync, repo, prefs, clock)
+                SyncWorker(appContext, params, sync, repo, prefs, clock, FakeWeatherRepository())
         })
         .build()
 

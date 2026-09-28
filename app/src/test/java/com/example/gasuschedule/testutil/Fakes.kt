@@ -1,5 +1,6 @@
 package com.example.gasuschedule.testutil
 
+import com.example.gasuschedule.domain.model.DayWeather
 import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.Lesson
@@ -14,6 +15,7 @@ import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.repository.WeatherRepository
 import com.example.gasuschedule.domain.repository.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -128,5 +130,14 @@ class FakeHomeworkRepository : HomeworkRepository {
     }
     override suspend fun delete(id: String) {
         items.value = items.value.filterNot { it.id == id }
+    }
+}
+
+class FakeWeatherRepository : WeatherRepository {
+    override val weather = MutableStateFlow<DayWeather?>(null)
+    var refreshCalls = 0
+    override suspend fun refreshIfStale(): Boolean {
+        refreshCalls++
+        return true
     }
 }
