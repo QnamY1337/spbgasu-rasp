@@ -63,6 +63,7 @@ import com.example.gasuschedule.BuildConfig
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.theme.MonoStyles
+import com.example.gasuschedule.presentation.widget.WidgetPin
 import com.example.gasuschedule.work.ReminderNotifications
 import com.example.gasuschedule.domain.model.ScheduleTime
 import java.time.format.DateTimeFormatter
@@ -77,8 +78,10 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
 
     val context = LocalContext.current
     var permissions by remember { mutableStateOf(ReminderPermissions.read(context)) }
+    var widget by remember { mutableStateOf(WidgetPin.state(context)) }
     // Разрешения меняются в системных настройках — перечитываем при каждом возвращении на экран.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        widget = WidgetPin.state(context)
         val fresh = ReminderPermissions.read(context)
         if (fresh != permissions) {
             permissions = fresh
@@ -93,6 +96,8 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
     SettingsScreen(
         state = state,
         permissions = permissions,
+        widget = widget,
+        onAddWidget = { WidgetPin.request(context) },
         snackbar = snackbar,
         onChangeGroup = onChangeGroup,
         onRemindersEnabled = { viewModel.setRemindersEnabled(it) },
@@ -160,6 +165,8 @@ data class ReminderPermissions(
 fun SettingsScreen(
     state: SettingsUiState,
     permissions: ReminderPermissions,
+    widget: WidgetPin.State,
+    onAddWidget: () -> Unit,
     snackbar: SnackbarHostState,
     onChangeGroup: () -> Unit,
     onRemindersEnabled: (Boolean) -> Unit,
@@ -206,6 +213,8 @@ fun SettingsScreen(
                 MinutesRow(state.reminderMinutes, enabled = state.remindersEnabled, onSelect = onReminderMinutes)
                 RowDivider()
                 SwitchRow("Изменения в расписании", state.changeNotificationsEnabled, onChangeNotifications)
+                RowDivider()
+                WidgetRow(widget, onAddWidget)
                 if ((state.remindersEnabled || state.changeNotificationsEnabled) && !permissions.notificationsAllowed) {
                     RowDivider()
                     WarningRow(
@@ -351,6 +360,33 @@ private fun MinutesRow(minutes: Int, enabled: Boolean, onSelect: (Int) -> Unit) 
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WidgetRow(widget: WidgetPin.State, onAdd: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp).height(48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Виджет на главном экране", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        when {
+            widget.installed > 0 -> Text(
+                "Добавлен",
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 8.dp),
+            )
+            widget.canRequest -> TextButton(onClick = onAdd) { Text("Добавить", fontWeight = FontWeight.SemiBold) }
+            else -> Text(
+                "Через меню\nрабочего стола",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                modifier = Modifier.padding(end = 8.dp),
+            )
         }
     }
 }

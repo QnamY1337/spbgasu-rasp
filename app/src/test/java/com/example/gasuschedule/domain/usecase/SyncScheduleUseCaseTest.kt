@@ -6,6 +6,7 @@ import com.example.gasuschedule.domain.model.ScheduleParseException
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.testutil.FakePreferences
 import com.example.gasuschedule.testutil.FakeReplanTrigger
+import com.example.gasuschedule.testutil.FakeWidgetUpdater
 import com.example.gasuschedule.testutil.FakeScheduleRepository
 import com.example.gasuschedule.testutil.GROUP
 import com.example.gasuschedule.testutil.clockAt
@@ -25,7 +26,8 @@ class SyncScheduleUseCaseTest {
     private val prefs = FakePreferences()
     private val clock = clockAt(d(28))
     private val replan = FakeReplanTrigger()
-    private val sync = SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock, replan)
+    private val widgets = FakeWidgetUpdater()
+    private val sync = SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock, replan, widgets)
 
     private val weeks = listOf(5, 6)
     private val base = schedule(weeks, lesson(d(29), 3), lesson(d(30), 1, "Философия"))
@@ -38,6 +40,7 @@ class SyncScheduleUseCaseTest {
         assertEquals(base, repo.snapshot(GROUP))
         assertEquals(clock.instant(), prefs.lastSyncAt.value)
         assertEquals("после синка пересчитываем напоминания", 1, replan.requests)
+        assertEquals("и обновляем виджет", 1, widgets.requests)
     }
 
     @Test
@@ -100,7 +103,7 @@ class SyncScheduleUseCaseTest {
 
     @Test
     fun `группа не выбрана - в сеть не ходим`() = runTest {
-        val noGroup = SyncScheduleUseCase(repo, FakePreferences(group = null), ScheduleDiffer(), clock, replan)
+        val noGroup = SyncScheduleUseCase(repo, FakePreferences(group = null), ScheduleDiffer(), clock, replan, widgets)
         assertSame(SyncResult.NoGroup, noGroup())
         assertEquals(0, repo.fetchCount)
     }

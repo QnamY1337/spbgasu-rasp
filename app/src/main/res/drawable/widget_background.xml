@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Кирпичная карточка виджета из макета; радиус задаём сами — на Android до 12 лаунчер не скругляет. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/brand_header" />
+    <corners android:radius="24dp" />
+</shape>

@@ -10,6 +10,7 @@ import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.repository.WidgetUpdater
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -87,4 +88,9 @@ class FakeReminderScheduler : ReminderScheduler {
 class FakeReplanTrigger : ReminderReplanTrigger {
     var requests = 0
     override fun requestReplan() { requests++ }
+}
+
+class FakeWidgetUpdater : WidgetUpdater {
+    var requests = 0
+    override fun requestUpdate() { requests++ }
 }

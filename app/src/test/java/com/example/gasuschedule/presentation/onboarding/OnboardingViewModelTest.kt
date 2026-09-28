@@ -6,6 +6,7 @@ import com.example.gasuschedule.domain.usecase.ScheduleDiffer
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import com.example.gasuschedule.testutil.FakePreferences
 import com.example.gasuschedule.testutil.FakeReplanTrigger
+import com.example.gasuschedule.testutil.FakeWidgetUpdater
 import com.example.gasuschedule.testutil.FakeScheduleRepository
 import com.example.gasuschedule.testutil.MainDispatcherRule
 import com.example.gasuschedule.testutil.clockAt
@@ -33,7 +34,7 @@ class OnboardingViewModelTest {
 
     private val repo = FakeScheduleRepository().apply { groups = { catalog } }
     private val prefs = FakePreferences(group = null)
-    private fun vm() = OnboardingViewModel(repo, prefs, SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clockAt(d(28)), FakeReplanTrigger()))
+    private fun vm() = OnboardingViewModel(repo, prefs, SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clockAt(d(28)), FakeReplanTrigger(), FakeWidgetUpdater()))
 
     @Test
     fun `фильтр - без учёта регистра и пробелов, точное совпадение первым`() {

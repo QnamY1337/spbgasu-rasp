@@ -14,6 +14,7 @@ import com.example.gasuschedule.domain.usecase.ScheduleDiffer
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import com.example.gasuschedule.testutil.FakePreferences
 import com.example.gasuschedule.testutil.FakeReplanTrigger
+import com.example.gasuschedule.testutil.FakeWidgetUpdater
 import com.example.gasuschedule.testutil.FakeScheduleRepository
 import com.example.gasuschedule.testutil.clockAt
 import com.example.gasuschedule.testutil.d
@@ -40,7 +41,7 @@ class SyncWorkerTest {
     private val repo = FakeScheduleRepository()
     private val prefs = FakePreferences()
     private val clock = clockAt(d(28), hour = 12)
-    private val sync = SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock, FakeReplanTrigger())
+    private val sync = SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock, FakeReplanTrigger(), FakeWidgetUpdater())
 
     private val base = schedule(listOf(5), lesson(d(29), 3, "Экономическая грамотность"))
     private val moved = schedule(listOf(5), lesson(d(29), 3, "Экономическая грамотность", rooms = listOf("812/С")))

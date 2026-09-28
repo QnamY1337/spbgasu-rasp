@@ -93,6 +93,8 @@ dependencies {
     implementation(libs.hilt.lifecycle.viewmodel.compose)
 
     implementation(libs.work.runtime)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
     implementation(libs.hilt.work)
     ksp(libs.hilt.androidx.compiler)
 

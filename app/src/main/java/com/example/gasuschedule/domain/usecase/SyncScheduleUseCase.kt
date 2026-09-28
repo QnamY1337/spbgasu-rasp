@@ -6,6 +6,7 @@ import com.example.gasuschedule.domain.model.ScheduleParseException
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.repository.WidgetUpdater
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,6 +43,7 @@ class SyncScheduleUseCase @Inject constructor(
     private val differ: ScheduleDiffer,
     private val clock: Clock,
     private val reminders: ReminderReplanTrigger,
+    private val widgets: WidgetUpdater,
 ) {
     // Синхронизацию могут одновременно запустить воркер и пользователь — диффить надо по очереди.
     private val mutex = Mutex()
@@ -67,8 +69,9 @@ class SyncScheduleUseCase @Inject constructor(
         val changes = differ.diff(old, fresh, LocalDate.now(clock), now)
         repository.replaceSnapshot(fresh, changes)
         preferences.setLastSyncAt(now)
-        // Пары могли поменяться — будильники напоминаний пересчитываются в фоне.
+        // Пары могли поменяться — будильники напоминаний и виджет обновляются в фоне.
         reminders.requestReplan()
+        widgets.requestUpdate()
         SyncResult.Success(fresh.lessons.size, changes)
     }
 }

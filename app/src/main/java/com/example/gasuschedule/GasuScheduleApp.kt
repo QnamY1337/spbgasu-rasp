@@ -3,7 +3,12 @@ package com.example.gasuschedule
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.example.gasuschedule.presentation.widget.WidgetPreviews
 import com.example.gasuschedule.work.BackgroundSync
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import com.example.gasuschedule.work.ChangeNotifications
 import com.example.gasuschedule.work.ReminderNotifications
 import com.example.gasuschedule.work.ReminderWork
@@ -28,5 +33,8 @@ class GasuScheduleApp : Application(), Configuration.Provider {
         reminderWork.ensureDailyPlanning()
         // Будильники могли пропасть (force stop, первая установка) — пересчитываем при каждом запуске.
         reminderWork.requestReplan()
+        appScope.launch { WidgetPreviews.publishOnce(this@GasuScheduleApp, BuildConfig.VERSION_CODE) }
     }
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
