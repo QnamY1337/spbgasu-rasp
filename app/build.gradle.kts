@@ -91,12 +91,17 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
 
+    implementation(libs.work.runtime)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.androidx.compiler)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.room.testing)
+    testImplementation(libs.work.testing)
     // Должен соответствовать @Config(sdk = [36]) в тестах.
     robolectricAndroidAll(libs.robolectric.android.all)
 }

@@ -1,5 +1,9 @@
 package com.example.gasuschedule.presentation.schedule
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,7 +17,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -50,11 +53,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.Lesson
+import com.example.gasuschedule.presentation.common.StatusBarIcons
+import com.example.gasuschedule.presentation.settings.ReminderPermissions
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
 import kotlinx.coroutines.launch
@@ -66,9 +72,11 @@ private const val TAB_WEEK = 1
 
 @Composable
 fun ScheduleRoute(onChangeGroup: () -> Unit, viewModel: ScheduleViewModel = hiltViewModel()) {
+    StatusBarIcons(onBrickHeader = true)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
+    AskNotificationsOnce()
 
     ScheduleScreen(
         state = state,
@@ -79,6 +87,24 @@ fun ScheduleRoute(onChangeGroup: () -> Unit, viewModel: ScheduleViewModel = hilt
         onShowWeekOf = viewModel::showWeekOf,
         onChangeGroup = onChangeGroup,
     )
+}
+
+/**
+ * Напоминания — главная фича, поэтому разрешение на уведомления (Android 13+) спрашиваем
+ * один раз при первом открытии расписания. Дальше — только из настроек.
+ */
+@Composable
+private fun AskNotificationsOnce() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) {
+        val permissions = ReminderPermissions.read(context)
+        if (!permissions.notificationsAllowed && !permissions.notificationsPermissionAsked) {
+            ReminderPermissions.markNotificationsAsked(context)
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +121,7 @@ fun ScheduleScreen(
     var tab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbar, Modifier.navigationBarsPadding()) },
+        snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
     ) { padding ->

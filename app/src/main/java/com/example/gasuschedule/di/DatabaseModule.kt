@@ -10,6 +10,7 @@ import com.example.gasuschedule.data.local.AppDatabase
 import com.example.gasuschedule.data.local.dao.ExamDao
 import com.example.gasuschedule.data.local.dao.HomeworkDao
 import com.example.gasuschedule.data.local.dao.ScheduleDao
+import com.example.gasuschedule.domain.model.ScheduleTime
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,6 +37,7 @@ object DatabaseModule {
     fun providePreferencesDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
 
+    /** Часы в поясе расписания (Москва) — см. [ScheduleTime.ZONE]. */
     @Provides
-    fun provideClock(): Clock = Clock.systemDefaultZone()
+    fun provideClock(): Clock = Clock.system(ScheduleTime.ZONE)
 }

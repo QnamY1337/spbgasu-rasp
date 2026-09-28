@@ -10,4 +10,16 @@ interface UserPreferencesRepository {
 
     val lastSyncAt: Flow<Instant?>
     suspend fun setLastSyncAt(at: Instant)
+
+    val remindersEnabled: Flow<Boolean>
+    suspend fun setRemindersEnabled(enabled: Boolean)
+
+    /** За сколько минут до начала пары напоминать. */
+    val reminderMinutes: Flow<Int>
+    suspend fun setReminderMinutes(minutes: Int)
+
+    companion object {
+        const val DEFAULT_REMINDER_MINUTES = 15
+        val REMINDER_MINUTES_OPTIONS = listOf(5, 10, 15, 30, 60)
+    }
 }

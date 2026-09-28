@@ -5,6 +5,7 @@ import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.ScheduleParseException
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.testutil.FakePreferences
+import com.example.gasuschedule.testutil.FakeReplanTrigger
 import com.example.gasuschedule.testutil.FakeScheduleRepository
 import com.example.gasuschedule.testutil.GROUP
 import com.example.gasuschedule.testutil.clockAt
@@ -23,7 +24,8 @@ class SyncScheduleUseCaseTest {
     private val repo = FakeScheduleRepository()
     private val prefs = FakePreferences()
     private val clock = clockAt(d(28))
-    private val sync = SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock)
+    private val replan = FakeReplanTrigger()
+    private val sync = SyncScheduleUseCase(repo, prefs, ScheduleDiffer(), clock, replan)
 
     private val weeks = listOf(5, 6)
     private val base = schedule(weeks, lesson(d(29), 3), lesson(d(30), 1, "Философия"))
@@ -35,6 +37,7 @@ class SyncScheduleUseCaseTest {
         assertEquals(SyncResult.Success(2, emptyList()), r)
         assertEquals(base, repo.snapshot(GROUP))
         assertEquals(clock.instant(), prefs.lastSyncAt.value)
+        assertEquals("после синка пересчитываем напоминания", 1, replan.requests)
     }
 
     @Test
@@ -68,6 +71,7 @@ class SyncScheduleUseCaseTest {
         repo.remote = { throw ScheduleNetworkException("Нет связи с сайтом расписания") }
         val r = sync()
         assertEquals(SyncResult.Failure(SyncResult.Reason.NETWORK, "Нет связи с сайтом расписания"), r)
+        assertEquals("при ошибке будильники не трогаем", 1, replan.requests)
         assertEquals(base, repo.snapshot(GROUP))
     }
 
@@ -96,7 +100,7 @@ class SyncScheduleUseCaseTest {
 
     @Test
     fun `группа не выбрана - в сеть не ходим`() = runTest {
-        val noGroup = SyncScheduleUseCase(repo, FakePreferences(group = null), ScheduleDiffer(), clock)
+        val noGroup = SyncScheduleUseCase(repo, FakePreferences(group = null), ScheduleDiffer(), clock, replan)
         assertSame(SyncResult.NoGroup, noGroup())
         assertEquals(0, repo.fetchCount)
     }

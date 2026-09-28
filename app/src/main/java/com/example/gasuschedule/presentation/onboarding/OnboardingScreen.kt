@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.em
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.StudyGroup
+import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
 
@@ -62,6 +63,7 @@ fun OnboardingRoute(
     onBack: (() -> Unit)?,
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
+    StatusBarIcons(onBrickHeader = true)
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.done) { if (state.done) onDone() }
     OnboardingScreen(

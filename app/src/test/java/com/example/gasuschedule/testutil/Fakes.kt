@@ -1,10 +1,13 @@
 package com.example.gasuschedule.testutil
 
 import com.example.gasuschedule.domain.model.Lesson
+import com.example.gasuschedule.domain.model.LessonReminder
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.domain.model.StudyGroup
+import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
+import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -61,4 +64,24 @@ class FakePreferences(group: String? = GROUP) : UserPreferencesRepository {
 
     override val lastSyncAt = MutableStateFlow<Instant?>(null)
     override suspend fun setLastSyncAt(at: Instant) { lastSyncAt.value = at }
+
+    override val remindersEnabled = MutableStateFlow(true)
+    override suspend fun setRemindersEnabled(enabled: Boolean) { remindersEnabled.value = enabled }
+
+    override val reminderMinutes = MutableStateFlow(UserPreferencesRepository.DEFAULT_REMINDER_MINUTES)
+    override suspend fun setReminderMinutes(minutes: Int) { reminderMinutes.value = minutes }
+}
+
+class FakeReminderScheduler : ReminderScheduler {
+    var scheduled: List<LessonReminder> = emptyList()
+    var calls = 0
+    override suspend fun replaceAll(reminders: List<LessonReminder>) {
+        scheduled = reminders
+        calls++
+    }
+}
+
+class FakeReplanTrigger : ReminderReplanTrigger {
+    var requests = 0
+    override fun requestReplan() { requests++ }
 }

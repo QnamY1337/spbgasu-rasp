@@ -2,10 +2,13 @@ package com.example.gasuschedule.data.local.prefs
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.repository.UserPreferencesRepository.Companion.DEFAULT_REMINDER_MINUTES
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -30,8 +33,24 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[LAST_SYNC_AT] = at.toEpochMilli() }
     }
 
+    override val remindersEnabled: Flow<Boolean> =
+        dataStore.data.map { it[REMINDERS_ENABLED] ?: true }.distinctUntilChanged()
+
+    override suspend fun setRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { it[REMINDERS_ENABLED] = enabled }
+    }
+
+    override val reminderMinutes: Flow<Int> =
+        dataStore.data.map { it[REMINDER_MINUTES] ?: DEFAULT_REMINDER_MINUTES }.distinctUntilChanged()
+
+    override suspend fun setReminderMinutes(minutes: Int) {
+        dataStore.edit { it[REMINDER_MINUTES] = minutes }
+    }
+
     private companion object {
         val GROUP_NAME = stringPreferencesKey("group_name")
         val LAST_SYNC_AT = longPreferencesKey("last_sync_at")
+        val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
+        val REMINDER_MINUTES = intPreferencesKey("reminder_minutes")
     }
 }
