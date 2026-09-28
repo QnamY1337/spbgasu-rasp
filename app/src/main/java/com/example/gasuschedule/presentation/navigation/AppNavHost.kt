@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.res.painterResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,10 +35,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.example.gasuschedule.R
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
-import com.example.gasuschedule.presentation.changes.ChangesRoute
 import com.example.gasuschedule.presentation.home.HomeRoute
 import com.example.gasuschedule.presentation.onboarding.OnboardingRoute
 import com.example.gasuschedule.presentation.schedule.ScheduleRoute
@@ -66,16 +63,12 @@ data object HomeDestination
 data object ScheduleDestination
 
 @Serializable
-data object ChangesDestination
-
-@Serializable
 data object SettingsDestination
 
-/** Вкладки нижней панели, как в макете. */
+/** Вкладки нижней панели. "Замены" — вкладка внутри "Расписания", не в нижней панели. */
 private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: String) {
     HOME(HomeDestination, HomeDestination::class, "Главная"),
     SCHEDULE(ScheduleDestination, ScheduleDestination::class, "Расписание"),
-    CHANGES(ChangesDestination, ChangesDestination::class, "Замены"),
     SETTINGS(SettingsDestination, SettingsDestination::class, "Настройки"),
 }
 
@@ -83,7 +76,6 @@ private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: Str
 private fun Tab.icon(): Painter = when (this) {
     Tab.HOME -> rememberVectorPainter(Icons.Default.Home)
     Tab.SCHEDULE -> rememberVectorPainter(Icons.Default.DateRange)
-    Tab.CHANGES -> painterResource(R.drawable.ic_changes)
     Tab.SETTINGS -> rememberVectorPainter(Icons.Default.Settings)
 }
 
@@ -100,7 +92,8 @@ class NavBadgesViewModel @Inject constructor(
 }
 
 /**
- * @param openChangesRequest растёт при каждом тапе по уведомлению о заменах — открываем ленту.
+ * @param openChangesRequest растёт при каждом тапе по уведомлению о заменах — открываем
+ *   "Расписание" на вкладке "Замены".
  */
 @Composable
 fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
@@ -116,7 +109,7 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
     LaunchedEffect(openChangesRequest, tabsShown) {
         if (openChangesRequest > handledRequest && tabsShown) {
             handledRequest = openChangesRequest
-            nav.navigateToTab(Tab.CHANGES)
+            nav.navigateToTab(Tab.SCHEDULE)
         }
     }
 
@@ -144,10 +137,11 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
                 HomeRoute(onOpenSettings = { nav.navigateToTab(Tab.SETTINGS) })
             }
             composable<ScheduleDestination> {
-                ScheduleRoute(onChangeGroup = { nav.navigate(OnboardingDestination(changing = true)) })
-            }
-            composable<ChangesDestination> {
-                ChangesRoute()
+                ScheduleRoute(
+                    onChangeGroup = { nav.navigate(OnboardingDestination(changing = true)) },
+                    unseenChanges = unseen,
+                    openChangesRequest = openChangesRequest,
+                )
             }
             composable<SettingsDestination> {
                 SettingsRoute(onChangeGroup = { nav.navigate(OnboardingDestination(changing = true)) })
@@ -174,7 +168,7 @@ private fun BottomBar(current: Tab, unseenChanges: Int, nav: NavHostController) 
                 icon = {
                     BadgedBox(
                         badge = {
-                            if (tab == Tab.CHANGES && unseenChanges > 0) {
+                            if (tab == Tab.SCHEDULE && unseenChanges > 0) {
                                 Badge(containerColor = scheme.primary) { Text(unseenChanges.toString()) }
                             }
                         },

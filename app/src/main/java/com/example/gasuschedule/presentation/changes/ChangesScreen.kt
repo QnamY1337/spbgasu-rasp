@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -40,7 +39,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.ChangeType
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleTime
-import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
 import com.example.gasuschedule.presentation.theme.PlexMono
@@ -50,9 +48,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** Лента замен — вкладка "Замены" на экране расписания. */
 @Composable
 fun ChangesRoute(viewModel: ChangesViewModel = hiltViewModel()) {
-    StatusBarIcons(onBrickHeader = false)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Замены просмотрены — уведомление о них больше не нужно.
@@ -64,20 +62,16 @@ fun ChangesRoute(viewModel: ChangesViewModel = hiltViewModel()) {
 fun ChangesScreen(state: ChangesUiState, today: LocalDate) {
     val scheme = MaterialTheme.colorScheme
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 32.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            Text("Замены", style = MaterialTheme.typography.headlineMedium)
-            state.lastSyncAt?.let {
+        state.lastSyncAt?.let {
+            item {
                 Text(
                     "Последняя сверка с сайтом — ${relativeTime(it, today)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }

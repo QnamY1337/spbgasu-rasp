@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.Lesson
+import com.example.gasuschedule.presentation.changes.ChangesRoute
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.lessondetail.LessonDetailSheet
 import com.example.gasuschedule.presentation.settings.ReminderPermissions
@@ -71,9 +73,19 @@ import java.time.LocalDate
 
 private const val TAB_TODAY = 0
 private const val TAB_WEEK = 1
+private const val TAB_CHANGES = 2
 
+/**
+ * @param unseenChanges число непросмотренных замен — бейдж на вкладке "Замены".
+ * @param openChangesRequest растёт при каждом тапе по уведомлению о заменах — открываем вкладку "Замены".
+ */
 @Composable
-fun ScheduleRoute(onChangeGroup: () -> Unit, viewModel: ScheduleViewModel = hiltViewModel()) {
+fun ScheduleRoute(
+    onChangeGroup: () -> Unit,
+    unseenChanges: Int = 0,
+    openChangesRequest: Int = 0,
+    viewModel: ScheduleViewModel = hiltViewModel(),
+) {
     StatusBarIcons(onBrickHeader = true)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -81,9 +93,21 @@ fun ScheduleRoute(onChangeGroup: () -> Unit, viewModel: ScheduleViewModel = hilt
     AskNotificationsOnce()
     val detail by viewModel.detail.collectAsStateWithLifecycle()
 
+    var tab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
+    var handledRequest by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(openChangesRequest) {
+        if (openChangesRequest > handledRequest) {
+            handledRequest = openChangesRequest
+            tab = TAB_CHANGES
+        }
+    }
+
     CompositionLocalProvider(LocalLessonClick provides viewModel::openLesson) {
         ScheduleScreen(
             state = state,
+            tab = tab,
+            onTab = { tab = it },
+            unseenChanges = unseenChanges,
             snackbar = snackbar,
             onRefresh = { viewModel.refresh() },
             onSelectDate = viewModel::selectDate,
@@ -117,6 +141,9 @@ private fun AskNotificationsOnce() {
 @Composable
 fun ScheduleScreen(
     state: ScheduleUiState,
+    tab: Int,
+    onTab: (Int) -> Unit,
+    unseenChanges: Int,
     snackbar: SnackbarHostState,
     onRefresh: () -> Unit,
     onSelectDate: (LocalDate) -> Unit,
@@ -124,15 +151,17 @@ fun ScheduleScreen(
     onShowWeekOf: (LocalDate) -> Unit,
     onChangeGroup: () -> Unit,
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            val pillWeek = if (tab == TAB_TODAY) state.weekOf(state.selectedDate) else state.week?.week
+            val pillWeek = when (tab) {
+                TAB_TODAY -> state.weekOf(state.selectedDate)
+                TAB_WEEK -> state.week?.week
+                else -> state.weekOf(state.today)
+            }
             Header(
                 group = state.group.orEmpty(),
                 pill = pillWeek?.let(::weekPill),
@@ -140,9 +169,10 @@ fun ScheduleScreen(
             )
             Tabs(
                 selected = tab,
+                unseenChanges = unseenChanges,
                 onSelect = {
                     if (it == TAB_WEEK) onShowWeekOf(state.selectedDate)
-                    tab = it
+                    onTab(it)
                 },
             )
             PullToRefreshBox(
@@ -151,13 +181,14 @@ fun ScheduleScreen(
                 modifier = Modifier.weight(1f),
             ) {
                 when {
+                    tab == TAB_CHANGES -> ChangesRoute()
                     !state.loaded -> Unit
                     state.weeks.isEmpty() && state.lessonsByDate.isEmpty() -> EmptySchedule(state.isRefreshing, onRefresh)
                     tab == TAB_TODAY -> TodayTab(state, onSelectDate)
                     else -> WeekTab(
                         state = state,
                         onShowWeek = onShowWeek,
-                        onOpenDay = { onSelectDate(it); tab = TAB_TODAY },
+                        onOpenDay = { onSelectDate(it); onTab(TAB_TODAY) },
                     )
                 }
             }
@@ -209,11 +240,11 @@ private fun Header(group: String, pill: String?, onGroupClick: () -> Unit) {
 }
 
 @Composable
-private fun Tabs(selected: Int, onSelect: (Int) -> Unit) {
+private fun Tabs(selected: Int, unseenChanges: Int, onSelect: (Int) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Column {
         Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            listOf("Сегодня", "Неделя").forEachIndexed { i, title ->
+            listOf("Сегодня", "Неделя", "Замены").forEachIndexed { i, title ->
                 val active = i == selected
                 Column(
                     Modifier
@@ -221,12 +252,18 @@ private fun Tabs(selected: Int, onSelect: (Int) -> Unit) {
                         .padding(top = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (active) scheme.onBackground else scheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (active) scheme.onBackground else scheme.onSurfaceVariant,
+                        )
+                        if (i == TAB_CHANGES && unseenChanges > 0) {
+                            Spacer(Modifier.width(6.dp))
+                            Badge(containerColor = scheme.primary) { Text(unseenChanges.toString()) }
+                        }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Box(
                         Modifier
