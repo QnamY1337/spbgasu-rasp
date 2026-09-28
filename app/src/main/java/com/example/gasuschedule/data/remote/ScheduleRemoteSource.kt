@@ -1,6 +1,7 @@
 package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.domain.model.SemesterSchedule
+import com.example.gasuschedule.domain.model.StudyGroup
 
 /**
  * Источник расписания. Основная реализация — AJAX-эндпоинт Bitrix ([BitrixScheduleSource]);
@@ -11,6 +12,6 @@ interface ScheduleRemoteSource {
     suspend fun fetchSchedule(groupName: String): SemesterSchedule
 
     /** Полный список групп для автокомплита. */
-    suspend fun fetchGroups(): List<String>
+    suspend fun fetchGroups(): List<StudyGroup>
 }
 

@@ -3,6 +3,7 @@ package com.example.gasuschedule.data.remote
 import com.example.gasuschedule.data.remote.dto.BitrixAjaxResponse
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.SemesterSchedule
+import com.example.gasuschedule.domain.model.StudyGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -40,14 +41,14 @@ class BitrixScheduleSource(
 
     private val mutex = Mutex()
     private var csrfToken: String? = null
-    private var cachedGroups: List<String>? = null
+    private var cachedGroups: List<StudyGroup>? = null
 
     override suspend fun fetchSchedule(groupName: String): SemesterSchedule = withContext(Dispatchers.IO) {
         val html = requestSchedule(groupName)
         parser.parse(html, groupName)
     }
 
-    override suspend fun fetchGroups(): List<String> = withContext(Dispatchers.IO) {
+    override suspend fun fetchGroups(): List<StudyGroup> = withContext(Dispatchers.IO) {
         mutex.withLock {
             cachedGroups ?: loadMainPage().let { cachedGroups }.orEmpty()
         }

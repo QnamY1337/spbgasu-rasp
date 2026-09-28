@@ -19,7 +19,7 @@ class LiveEndpointTest {
     fun `живой эндпоинт отдаёт и разбирает расписание 3-ТТП-26`() = runBlocking {
         val source = BitrixScheduleSource()
         val groups = source.fetchGroups()
-        assertTrue("групп: ${groups.size}", groups.size > 100 && "3-ТТП-26" in groups)
+        assertTrue("групп: ${groups.size}", groups.size > 100 && groups.any { it.name == "3-ТТП-26" })
 
         val schedule = source.fetchSchedule("3-ТТП-26")
         println("Недель: ${schedule.weeks.size}, пар: ${schedule.lessons.size}")

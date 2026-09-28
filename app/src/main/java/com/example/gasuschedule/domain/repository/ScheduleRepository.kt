@@ -4,6 +4,7 @@ import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
+import com.example.gasuschedule.domain.model.StudyGroup
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -25,5 +26,5 @@ interface ScheduleRepository {
     fun observeUnseenChangesCount(group: String): Flow<Int>
     suspend fun markChangesSeen(group: String)
 
-    suspend fun fetchGroups(): List<String>
+    suspend fun fetchGroups(): List<StudyGroup>
 }

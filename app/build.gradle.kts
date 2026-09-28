@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.room)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 val robolectricAndroidAll: Configuration = configurations.create("robolectricAndroidAll")
@@ -23,6 +25,10 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     compileOptions {
@@ -69,6 +75,21 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.datastore.preferences)
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.splashscreen)
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.core)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

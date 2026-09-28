@@ -7,6 +7,19 @@
         android:name=".GasuScheduleApp"
         android:allowBackup="true"
         android:label="Расписание СПбГАСУ"
-        android:supportsRtl="true" />
+        android:supportsRtl="true"
+        android:theme="@style/Theme.GasuSchedule">
+
+        <activity
+            android:name=".presentation.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.GasuSchedule.Starting"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 
 </manifest>

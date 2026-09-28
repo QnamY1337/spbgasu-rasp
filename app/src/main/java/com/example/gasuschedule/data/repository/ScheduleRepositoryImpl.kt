@@ -8,6 +8,7 @@ import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
+import com.example.gasuschedule.domain.model.StudyGroup
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -50,5 +51,5 @@ class ScheduleRepositoryImpl @Inject constructor(
 
     override suspend fun markChangesSeen(group: String) = dao.markSeen(group)
 
-    override suspend fun fetchGroups(): List<String> = remote.fetchGroups()
+    override suspend fun fetchGroups(): List<StudyGroup> = remote.fetchGroups()
 }

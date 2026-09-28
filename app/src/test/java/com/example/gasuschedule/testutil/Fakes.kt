@@ -4,6 +4,7 @@ import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
+import com.example.gasuschedule.domain.model.StudyGroup
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,7 @@ class FakeScheduleRepository : ScheduleRepository {
     /** Что вернёт следующий fetchRemote; исключение — будет брошено. */
     var remote: () -> SemesterSchedule = { error("remote не задан") }
     var fetchCount = 0
+    var groups: () -> List<StudyGroup> = { listOf(StudyGroup(GROUP)) }
 
     private val snapshots = MutableStateFlow<Map<String, SemesterSchedule>>(emptyMap())
     val changes = MutableStateFlow<List<ScheduleChange>>(emptyList())
@@ -50,7 +52,7 @@ class FakeScheduleRepository : ScheduleRepository {
         changes.value = changes.value.map { if (it.groupName == group) it.copy(seen = true) else it }
     }
 
-    override suspend fun fetchGroups() = listOf(GROUP)
+    override suspend fun fetchGroups() = groups()
 }
 
 class FakePreferences(group: String? = GROUP) : UserPreferencesRepository {

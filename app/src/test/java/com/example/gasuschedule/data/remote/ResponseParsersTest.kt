@@ -1,6 +1,7 @@
 package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.data.remote.dto.BitrixAjaxResponse
+import com.example.gasuschedule.domain.model.StudyGroup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,7 +40,13 @@ class ResponseParsersTest {
         assertEquals("438f4f3c2e94f4fe97fce25782b4c2de", MainPageParser.sessid(Fixtures.indexPage))
         val groups = MainPageParser.groups(Fixtures.indexPage)
         assertEquals(614, groups.size)
-        assertTrue("3-ТТП-26" in groups)
-        assertEquals("1-А-26", groups.first())
+        assertEquals("1-А-26", groups.first().name)
+        assertEquals(
+            StudyGroup("3-ТТП-26", "Автомобильно-дорожный факультет", "Бакалавриат", "1 курс"),
+            groups.single { it.name == "3-ТТП-26" },
+        )
+        assertEquals("Автомобильно-дорожный факультет · 1 курс", groups.single { it.name == "3-ТТП-26" }.subtitle)
+        // Каталог покрывает почти все группы; остальные остаются просто именами.
+        assertTrue(groups.count { it.faculty != null } > 500)
     }
 }
