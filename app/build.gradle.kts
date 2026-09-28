@@ -37,6 +37,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Схемы Room — в ассеты debug: Robolectric-тесты видят только ассеты тестируемого варианта,
+    // по ним MigrationTestHelper проверяет миграции. В release схемы не попадают.
+    sourceSets.getByName("debug").assets.directories.add("$projectDir/schemas")
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {

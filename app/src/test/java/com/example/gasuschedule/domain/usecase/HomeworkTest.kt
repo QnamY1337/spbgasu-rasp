@@ -3,6 +3,7 @@ package com.example.gasuschedule.domain.usecase
 import com.example.gasuschedule.domain.model.HomeworkGroup
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.HomeworkPlanning
+import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.presentation.homework.dueText
 import com.example.gasuschedule.testutil.FakeHomeworkRepository
 import com.example.gasuschedule.testutil.FakeReplanTrigger
@@ -45,6 +46,42 @@ class HomeworkTest {
         assertEquals(d(30), HomeworkPlanning.nextLessonDate("Физика", d(28), lessons))
         assertEquals(d(7, 10), HomeworkPlanning.nextLessonDate("Физика", d(30), lessons))
         assertNull(HomeworkPlanning.nextLessonDate("Химия", d(28), lessons))
+    }
+
+    // Высшая математика: ПН 28.09 лекция, ВТ 29.09 практика, СР 30.09 лекция, ПТ 02.10 практика, СР 07.10 лаба.
+    private val math = listOf(
+        lesson(d(28), 1, "Высшая математика", LessonType.LECTURE),
+        lesson(d(29), 2, "Высшая математика", LessonType.PRACTICE),
+        lesson(d(30), 1, "Высшая математика", LessonType.LECTURE),
+        lesson(d(2, 10), 3, "Высшая математика", LessonType.PRACTICE),
+        lesson(d(7, 10), 4, "Высшая математика", LessonType.LAB),
+    )
+
+    @Test
+    fun `к следующей паре того же типа`() {
+        // С практики во вторник — к практике в пятницу, а не к лекции в среду.
+        assertEquals(d(2, 10), HomeworkPlanning.nextLessonDate("Высшая математика", d(29), math, LessonType.PRACTICE))
+        assertEquals(d(30), HomeworkPlanning.nextLessonDate("Высшая математика", d(28), math, LessonType.LECTURE))
+        assertEquals(d(7, 10), HomeworkPlanning.nextLessonDate("Высшая математика", d(29), math, LessonType.LAB))
+        // Без типа — любая следующая пара.
+        assertEquals(d(30), HomeworkPlanning.nextLessonDate("Высшая математика", d(29), math))
+        // Практик впереди нет — берём любую следующую пару по предмету.
+        assertEquals(d(7, 10), HomeworkPlanning.nextLessonDate("Высшая математика", d(2, 10), math, LessonType.PRACTICE))
+        assertEquals(
+            listOf(LessonType.LECTURE, LessonType.PRACTICE, LessonType.LAB),
+            HomeworkPlanning.typesOf("высшая математика", math),
+        )
+    }
+
+    @Test
+    fun `дедлайн - начало пары нужного типа, если в день сдачи их несколько`() {
+        val day = listOf(
+            lesson(d(30), 1, "Физика", LessonType.LECTURE), // 09:00
+            lesson(d(30), 3, "Физика", LessonType.LAB), // 12:30
+        )
+        val lab = hw("lab", d(30)).copy(lessonType = LessonType.LAB)
+        assertEquals(d(30).atTime(12, 30), HomeworkPlanning.deadline(lab, day))
+        assertEquals("без типа — первая пара дня", d(30).atTime(9, 0), HomeworkPlanning.deadline(hw("any", d(30)), day))
     }
 
     @Test
@@ -119,5 +156,17 @@ class HomeworkTest {
         manage.delete(created.id)
         assertTrue(repo.items.value.isEmpty())
         assertEquals(4, replan.requests)
+    }
+
+    @Test
+    fun `тип занятия сохраняется, OTHER не храним`() = runTest {
+        val repo = FakeHomeworkRepository()
+        val manage = ManageHomeworkUseCase(repo, FakeReplanTrigger(), clockAt(d(28), 10))
+        manage.save(null, null, "Физика", "Лаба 3", d(7, 10), LessonType.LAB)
+        manage.save(null, null, "Физика", "Реферат", null, LessonType.OTHER)
+        assertEquals(
+            setOf(LessonType.LAB, null),
+            repo.items.value.map { it.lessonType }.toSet(),
+        )
     }
 }
