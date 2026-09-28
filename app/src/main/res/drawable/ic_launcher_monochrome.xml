@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Тематическая иконка Android 13+: силуэт листа, строки пар и шапка вырезаны. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M38,34H70A6,6 0,0 1,76 40V72A6,6 0,0 1,70 78H38A6,6 0,0 1,32 72V40A6,6 0,0 1,38 34ZM32,45V48H76V45ZM40,52H43A2,2 0,0 1,43 56H40A2,2 0,0 1,40 52ZM51,52H68A2,2 0,0 1,68 56H51A2,2 0,0 1,51 52ZM40,60H43A2,2 0,0 1,43 64H40A2,2 0,0 1,40 60ZM51,60H64A2,2 0,0 1,64 64H51A2,2 0,0 1,51 60ZM40,68H43A2,2 0,0 1,43 72H40A2,2 0,0 1,40 68ZM51,68H60A2,2 0,0 1,60 72H51A2,2 0,0 1,51 68Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M43,29A2,2 0,0 1,45 31V33H41V31A2,2 0,0 1,43 29ZM65,29A2,2 0,0 1,67 31V33H63V31A2,2 0,0 1,65 29Z" />
+</vector>
