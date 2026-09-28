@@ -2,13 +2,11 @@ package com.example.gasuschedule.presentation.schedule
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gasuschedule.domain.model.Buildings
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.WeekSchedule
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
-import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
 import com.example.gasuschedule.domain.usecase.GetWeekScheduleUseCase
 import com.example.gasuschedule.domain.usecase.SyncResult
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
@@ -112,14 +110,7 @@ class ScheduleViewModel @Inject constructor(
     val detail: StateFlow<LessonDetail?> = openedLesson.flatMapLatest { lesson ->
         if (lesson == null) return@flatMapLatest flowOf(null)
         combine(preferences.home, preferences.travelMode, preferences.leaveBufferMinutes) { home, mode, buffer ->
-            LessonDetail(
-                lesson = lesson,
-                building = Buildings.byCode(lesson.building),
-                leave = EstimateLeaveTimeUseCase.estimate(lesson, home, mode, buffer),
-                firstOfDay = EstimateLeaveTimeUseCase.isFirstOfDay(lesson, state.value.lessonsByDate[lesson.date].orEmpty()),
-                home = home,
-                mode = mode,
-            )
+            LessonDetail.of(lesson, state.value.lessonsByDate[lesson.date].orEmpty(), home, mode, buffer)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

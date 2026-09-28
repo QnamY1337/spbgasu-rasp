@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.gasuschedule.domain.model.Building
+import com.example.gasuschedule.domain.model.Buildings
+import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
 import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.LessonType
@@ -43,7 +45,20 @@ data class LessonDetail(
     val firstOfDay: Boolean,
     val home: HomeLocation?,
     val mode: TravelMode,
-)
+) {
+    companion object {
+        /** [dayLessons] — пары того же дня (чтобы понять, первая ли это пара). */
+        fun of(lesson: Lesson, dayLessons: List<Lesson>, home: HomeLocation?, mode: TravelMode, bufferMinutes: Int) =
+            LessonDetail(
+                lesson = lesson,
+                building = Buildings.byCode(lesson.building),
+                leave = EstimateLeaveTimeUseCase.estimate(lesson, home, mode, bufferMinutes),
+                firstOfDay = EstimateLeaveTimeUseCase.isFirstOfDay(lesson, dayLessons),
+                home = home,
+                mode = mode,
+            )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

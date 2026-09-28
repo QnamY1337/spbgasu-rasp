@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -39,6 +40,7 @@ import com.example.gasuschedule.R
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.changes.ChangesRoute
+import com.example.gasuschedule.presentation.home.HomeRoute
 import com.example.gasuschedule.presentation.onboarding.OnboardingRoute
 import com.example.gasuschedule.presentation.schedule.ScheduleRoute
 import com.example.gasuschedule.presentation.settings.SettingsRoute
@@ -58,6 +60,9 @@ import kotlin.reflect.KClass
 data class OnboardingDestination(val changing: Boolean = false)
 
 @Serializable
+data object HomeDestination
+
+@Serializable
 data object ScheduleDestination
 
 @Serializable
@@ -68,6 +73,7 @@ data object SettingsDestination
 
 /** Вкладки нижней панели, как в макете. */
 private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: String) {
+    HOME(HomeDestination, HomeDestination::class, "Главная"),
     SCHEDULE(ScheduleDestination, ScheduleDestination::class, "Расписание"),
     CHANGES(ChangesDestination, ChangesDestination::class, "Замены"),
     SETTINGS(SettingsDestination, SettingsDestination::class, "Настройки"),
@@ -75,6 +81,7 @@ private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: Str
 
 @Composable
 private fun Tab.icon(): Painter = when (this) {
+    Tab.HOME -> rememberVectorPainter(Icons.Default.Home)
     Tab.SCHEDULE -> rememberVectorPainter(Icons.Default.DateRange)
     Tab.CHANGES -> painterResource(R.drawable.ic_changes)
     Tab.SETTINGS -> rememberVectorPainter(Icons.Default.Settings)
@@ -119,19 +126,22 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
     ) { padding ->
         NavHost(
             navController = nav,
-            startDestination = if (hasGroup) ScheduleDestination else OnboardingDestination(),
+            startDestination = if (hasGroup) HomeDestination else OnboardingDestination(),
             modifier = Modifier.padding(padding),
         ) {
             composable<OnboardingDestination> { backStackEntry ->
                 val changing = backStackEntry.toRoute<OnboardingDestination>().changing
                 OnboardingRoute(
                     onDone = {
-                        nav.navigate(ScheduleDestination) {
+                        nav.navigate(HomeDestination) {
                             popUpTo(nav.graph.id) { inclusive = true }
                         }
                     },
                     onBack = if (changing) ({ nav.popBackStack() }) else null,
                 )
+            }
+            composable<HomeDestination> {
+                HomeRoute(onOpenSettings = { nav.navigateToTab(Tab.SETTINGS) })
             }
             composable<ScheduleDestination> {
                 ScheduleRoute(onChangeGroup = { nav.navigate(OnboardingDestination(changing = true)) })
@@ -147,8 +157,8 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
 }
 
 private fun NavHostController.navigateToTab(tab: Tab) = navigate(tab.route) {
-    // "Расписание" — корень стека после онбординга (стартовым мог быть онбординг).
-    popUpTo<ScheduleDestination> { saveState = true }
+    // "Главная" — корень стека после онбординга (стартовым мог быть онбординг).
+    popUpTo<HomeDestination> { saveState = true }
     launchSingleTop = true
     restoreState = true
 }
