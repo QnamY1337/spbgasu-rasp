@@ -1,5 +1,6 @@
 package com.example.gasuschedule.presentation.widget
 
+import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.domain.usecase.NextLesson
 import com.example.gasuschedule.presentation.schedule.shortDate
 import com.example.gasuschedule.presentation.schedule.shortDayName
@@ -14,7 +15,11 @@ data class WidgetModel(
     val chip: String?,
 )
 
-fun widgetModel(next: NextLesson, now: LocalDateTime): WidgetModel = when (next) {
+/**
+ * @param leave время выхода для первой пары дня (если указан дом) — показывается в плашке,
+ *   как "Выйти в 10:11" в макете; иначе в плашке номер и время пары.
+ */
+fun widgetModel(next: NextLesson, now: LocalDateTime, leave: LeaveEstimate? = null): WidgetModel = when (next) {
     NextLesson.NoGroup -> WidgetModel(
         label = "РАСПИСАНИЕ СПБГАСУ",
         corner = null,
@@ -49,8 +54,10 @@ fun widgetModel(next: NextLesson, now: LocalDateTime): WidgetModel = when (next)
                 slot.flatMap { it.rooms }.distinct().joinToString(", "),
                 slot.flatMap { it.teachers }.distinct().joinToString(", "),
             ).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null },
-            // В фазе 7 здесь появится "Выйти в 10:11".
-            chip = "${l.lessonNumber} пара · ${l.startTime}–${l.endTime}",
+            chip = (leave as? LeaveEstimate.Estimated)
+                ?.takeIf { !next.ongoing && next.firstOfDay }
+                ?.let { "Выйти в ${it.route.recommendedLeaveTime}" }
+                ?: "${l.lessonNumber} пара · ${l.startTime}–${l.endTime}",
         )
     }
 }

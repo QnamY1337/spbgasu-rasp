@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -60,6 +61,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.presentation.common.StatusBarIcons
+import com.example.gasuschedule.presentation.lessondetail.LessonDetailSheet
 import com.example.gasuschedule.presentation.settings.ReminderPermissions
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
@@ -77,16 +79,20 @@ fun ScheduleRoute(onChangeGroup: () -> Unit, viewModel: ScheduleViewModel = hilt
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
     AskNotificationsOnce()
+    val detail by viewModel.detail.collectAsStateWithLifecycle()
 
-    ScheduleScreen(
-        state = state,
-        snackbar = snackbar,
-        onRefresh = { viewModel.refresh() },
-        onSelectDate = viewModel::selectDate,
-        onShowWeek = viewModel::showWeek,
-        onShowWeekOf = viewModel::showWeekOf,
-        onChangeGroup = onChangeGroup,
-    )
+    CompositionLocalProvider(LocalLessonClick provides viewModel::openLesson) {
+        ScheduleScreen(
+            state = state,
+            snackbar = snackbar,
+            onRefresh = { viewModel.refresh() },
+            onSelectDate = viewModel::selectDate,
+            onShowWeek = viewModel::showWeek,
+            onShowWeekOf = viewModel::showWeekOf,
+            onChangeGroup = onChangeGroup,
+        )
+    }
+    detail?.let { LessonDetailSheet(it, onDismiss = { viewModel.openLesson(null) }) }
 }
 
 /**

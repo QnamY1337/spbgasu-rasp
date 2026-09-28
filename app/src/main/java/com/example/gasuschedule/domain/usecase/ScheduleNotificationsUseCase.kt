@@ -1,6 +1,8 @@
 package com.example.gasuschedule.domain.usecase
 
+import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.Lesson
+import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.model.LessonReminder
 import com.example.gasuschedule.domain.model.subjectWithType
 import com.example.gasuschedule.domain.repository.ReminderScheduler
@@ -28,18 +30,59 @@ class ScheduleNotificationsUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(): List<LessonReminder> {
         val group = preferences.groupName.first()
-        val reminders = if (group == null || !preferences.remindersEnabled.first()) {
+        val reminders = if (group == null) {
             emptyList()
         } else {
             val today = LocalDate.now(clock)
             val lessons = repository.observeLessons(group, today, today.plusDays(1)).first()
-            buildReminders(lessons, preferences.reminderMinutes.first(), clock)
+            val lessonReminders =
+                if (preferences.remindersEnabled.first()) buildReminders(lessons, preferences.reminderMinutes.first(), clock)
+                else emptyList()
+            val leaveReminders =
+                if (preferences.leaveRemindersEnabled.first()) {
+                    buildLeaveReminders(
+                        lessons,
+                        preferences.home.first(),
+                        preferences.travelMode.first(),
+                        preferences.leaveBufferMinutes.first(),
+                        clock,
+                    )
+                } else emptyList()
+            (lessonReminders + leaveReminders).sortedBy { it.triggerAt }
         }
         scheduler.replaceAll(reminders)
         return reminders
     }
 
     companion object {
+        /** "Пора выходить" — к первой паре каждого дня, если указан дом и известен корпус. */
+        fun buildLeaveReminders(
+            lessons: List<Lesson>,
+            home: HomeLocation?,
+            mode: TravelMode,
+            bufferMinutes: Int,
+            clock: Clock,
+        ): List<LessonReminder> {
+            if (home == null) return emptyList()
+            val now = Instant.now(clock)
+            return lessons.groupBy { it.date }.values.mapNotNull { day ->
+                val first = day.minWith(compareBy({ it.lessonNumber }, { it.id }))
+                val estimate = EstimateLeaveTimeUseCase.estimate(first, home, mode, bufferMinutes)
+                    as? LeaveEstimate.Estimated ?: return@mapNotNull null
+                val route = estimate.route
+                val trigger = first.date.atTime(route.recommendedLeaveTime).atZone(clock.zone).toInstant()
+                if (!trigger.isAfter(now)) return@mapNotNull null
+                val how = if (mode == TravelMode.WALKING) "пешком" else "на транспорте"
+                LessonReminder(
+                    key = "leave|${first.groupName}|${first.date}",
+                    lessonId = first.id,
+                    triggerAt = trigger,
+                    title = "Пора выходить · ${first.subject} в ${first.startTime}",
+                    text = "Дорога ≈${route.travelMinutes} мин $how · ${route.building.name}, ${route.building.address}",
+                )
+            }
+        }
+
         fun buildReminders(lessons: List<Lesson>, minutesBefore: Int, clock: Clock): List<LessonReminder> {
             val now = Instant.now(clock)
             return lessons

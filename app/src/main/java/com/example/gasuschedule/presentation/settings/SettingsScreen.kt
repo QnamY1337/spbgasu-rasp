@@ -61,6 +61,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.BuildConfig
+import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.theme.MonoStyles
@@ -81,6 +82,7 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
     var permissions by remember { mutableStateOf(ReminderPermissions.read(context)) }
     var widget by remember { mutableStateOf(WidgetPin.state(context)) }
     var showWidgetHelp by remember { mutableStateOf(false) }
+    var showHomeDialog by remember { mutableStateOf(false) }
     if (showWidgetHelp && widget.installed == 0) WidgetHelpDialog(onDismiss = { showWidgetHelp = false })
     // Разрешения меняются в системных настройках — перечитываем при каждом возвращении на экран.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -129,7 +131,25 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
         },
         onRefresh = viewModel::refresh,
         onDebugBackgroundSync = if (BuildConfig.DEBUG) viewModel::runBackgroundSyncNow else null,
+        onEditHome = { showHomeDialog = true },
+        onTravelMode = { viewModel.setTravelMode(it) },
+        onLeaveBuffer = { viewModel.setLeaveBuffer(it) },
+        onLeaveReminders = { viewModel.setLeaveReminders(it) },
     )
+
+    if (showHomeDialog) {
+        val address by viewModel.address.collectAsStateWithLifecycle()
+        HomeAddressDialog(
+            current = state.road.home,
+            search = address,
+            onSearch = viewModel::searchAddress,
+            onChoose = { viewModel.setHome(it); showHomeDialog = false },
+            onClear = { viewModel.setHome(null); showHomeDialog = false },
+            onLocation = viewModel::setHomeFromLocation,
+            onLocationFailed = viewModel::onLocationFailed,
+            onDismiss = { showHomeDialog = false },
+        )
+    }
 }
 
 /** Состояние системных разрешений, от которых зависят напоминания. */
@@ -183,6 +203,10 @@ fun SettingsScreen(
     onTestNotification: () -> Unit,
     onRefresh: () -> Unit,
     onDebugBackgroundSync: (() -> Unit)? = null,
+    onEditHome: () -> Unit = {},
+    onTravelMode: (TravelMode) -> Unit = {},
+    onLeaveBuffer: (Int) -> Unit = {},
+    onLeaveReminders: (Boolean) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Scaffold(
@@ -194,8 +218,9 @@ fun SettingsScreen(
             Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                // Отступ под статус-бар — до прокрутки, иначе текст уезжает под часы.
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 24.dp),
         ) {
             Text("Настройки", style = MaterialTheme.typography.headlineMedium)
@@ -250,6 +275,21 @@ fun SettingsScreen(
                 }
             }
 
+            SectionTitle("ДОРОГА ДО ВУЗА")
+            RoadCard(
+                road = state.road,
+                onEditHome = onEditHome,
+                onTravelMode = onTravelMode,
+                onLeaveBuffer = onLeaveBuffer,
+                onLeaveReminders = onLeaveReminders,
+            )
+            Text(
+                "Время в пути оценивается по расстоянию. Точный маршрут — кнопкой «Маршрут в Яндекс.Картах» в карточке пары.",
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+            )
+
             Spacer(Modifier.height(32.dp))
             Row(
                 Modifier
@@ -298,7 +338,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun SettingsCard(content: @Composable () -> Unit) {
+internal fun SettingsCard(content: @Composable () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
@@ -310,12 +350,12 @@ private fun SettingsCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RowDivider() {
+internal fun RowDivider() {
     Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 }
 
 @Composable
-private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()

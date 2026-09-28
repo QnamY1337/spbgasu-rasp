@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -34,6 +35,9 @@ import com.example.gasuschedule.domain.model.shortLabel
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
 import java.time.LocalDateTime
+
+/** Тап по карточке пары — открыть подробности; задаётся экраном расписания. */
+val LocalLessonClick = staticCompositionLocalOf<((Lesson) -> Unit)?> { null }
 
 /** Карточка пары из макета: слева номер и время моноширинным, справа предмет, аудитория, преподаватель. */
 @Composable
@@ -65,7 +69,14 @@ fun LessonCard(
     val accentBar = scheme.primary
 
     Box(modifier.padding(top = if (highlighted) 10.dp else 0.dp)) {
-        Surface(shape = MaterialTheme.shapes.medium, color = container, border = border) {
+        val onClick = LocalLessonClick.current
+        Surface(
+            onClick = { onClick?.invoke(lesson) },
+            enabled = onClick != null,
+            shape = MaterialTheme.shapes.medium,
+            color = container,
+            border = border,
+        ) {
             Row(
                 Modifier
                     .height(IntrinsicSize.Min)

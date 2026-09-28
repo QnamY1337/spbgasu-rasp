@@ -1,11 +1,13 @@
 package com.example.gasuschedule.testutil
 
+import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.LessonReminder
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.domain.model.StudyGroup
+import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
@@ -74,6 +76,18 @@ class FakePreferences(group: String? = GROUP) : UserPreferencesRepository {
 
     override val changeNotificationsEnabled = MutableStateFlow(true)
     override suspend fun setChangeNotificationsEnabled(enabled: Boolean) { changeNotificationsEnabled.value = enabled }
+
+    override val home = MutableStateFlow<HomeLocation?>(null)
+    override suspend fun setHome(home: HomeLocation?) { this.home.value = home }
+
+    override val travelMode = MutableStateFlow(TravelMode.TRANSIT)
+    override suspend fun setTravelMode(mode: TravelMode) { travelMode.value = mode }
+
+    override val leaveBufferMinutes = MutableStateFlow(UserPreferencesRepository.DEFAULT_LEAVE_BUFFER_MINUTES)
+    override suspend fun setLeaveBufferMinutes(minutes: Int) { leaveBufferMinutes.value = minutes }
+
+    override val leaveRemindersEnabled = MutableStateFlow(true)
+    override suspend fun setLeaveRemindersEnabled(enabled: Boolean) { leaveRemindersEnabled.value = enabled }
 }
 
 class FakeReminderScheduler : ReminderScheduler {

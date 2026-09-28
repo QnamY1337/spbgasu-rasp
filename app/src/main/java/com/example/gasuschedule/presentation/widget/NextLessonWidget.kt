@@ -33,6 +33,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.example.gasuschedule.R
+import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
 import com.example.gasuschedule.domain.usecase.GetNextLessonUseCase
 import com.example.gasuschedule.domain.usecase.NextLesson
 import com.example.gasuschedule.presentation.MainActivity
@@ -48,6 +49,7 @@ import java.time.LocalDateTime
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun getNextLesson(): GetNextLessonUseCase
+    fun estimateLeaveTime(): EstimateLeaveTimeUseCase
     fun clock(): Clock
     fun refresher(): WidgetRefresher
 }
@@ -63,7 +65,10 @@ class NextLessonWidget : GlanceAppWidget() {
         (next as? NextLesson.Found)?.let {
             deps.refresher().scheduleRefreshAt(it.validUntil, now)
         }
-        val model = widgetModel(next, now)
+        val leave = (next as? NextLesson.Found)
+            ?.takeIf { it.firstOfDay && !it.ongoing }
+            ?.let { deps.estimateLeaveTime()(it.lesson) }
+        val model = widgetModel(next, now, leave)
         provideContent { WidgetBody(model) }
     }
 
@@ -76,7 +81,7 @@ class NextLessonWidget : GlanceAppWidget() {
                     corner = "10:45",
                     title = "История России",
                     subtitle = "Актовый зал/Г · Гурьев Е.П.",
-                    chip = "2 пара · 10:45–12:15",
+                    chip = "Выйти в 10:11",
                 ),
             )
         }

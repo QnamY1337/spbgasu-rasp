@@ -25,6 +25,8 @@ sealed interface NextLesson {
         val parallel: List<Lesson> = emptyList(),
         /** Когда показанное устареет: конец текущей пары или начало следующей. */
         val validUntil: LocalDateTime,
+        /** Первая пара своего дня — к ней выходят из дома (показываем время выхода). */
+        val firstOfDay: Boolean = false,
     ) : NextLesson
 }
 
@@ -59,6 +61,7 @@ class GetNextLessonUseCase @Inject constructor(
                 ongoing = ongoing,
                 parallel = slot.filter { it.id != main.id },
                 validUntil = if (ongoing) end else start,
+                firstOfDay = EstimateLeaveTimeUseCase.isFirstOfDay(main, lessons),
             )
         }
     }

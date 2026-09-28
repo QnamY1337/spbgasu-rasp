@@ -2,15 +2,18 @@ package com.example.gasuschedule.presentation.schedule
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gasuschedule.domain.model.Buildings
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.WeekSchedule
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
+import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
 import com.example.gasuschedule.domain.usecase.GetWeekScheduleUseCase
 import com.example.gasuschedule.domain.usecase.SyncResult
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import com.example.gasuschedule.presentation.common.errorMessage
+import com.example.gasuschedule.presentation.lessondetail.LessonDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -24,6 +27,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -102,8 +106,29 @@ class ScheduleViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScheduleUiState())
 
+    private val openedLesson = MutableStateFlow<Lesson?>(null)
+
+    /** Карточка пары (по тапу): корпус, дорога из дома, маршрут. */
+    val detail: StateFlow<LessonDetail?> = openedLesson.flatMapLatest { lesson ->
+        if (lesson == null) return@flatMapLatest flowOf(null)
+        combine(preferences.home, preferences.travelMode, preferences.leaveBufferMinutes) { home, mode, buffer ->
+            LessonDetail(
+                lesson = lesson,
+                building = Buildings.byCode(lesson.building),
+                leave = EstimateLeaveTimeUseCase.estimate(lesson, home, mode, buffer),
+                firstOfDay = EstimateLeaveTimeUseCase.isFirstOfDay(lesson, state.value.lessonsByDate[lesson.date].orEmpty()),
+                home = home,
+                mode = mode,
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun openLesson(lesson: Lesson?) {
+        openedLesson.value = lesson
+    }
+
     init {
-        // Фоновой синхронизации пока нет (фаза 5) — обновляем при открытии, если данные устарели.
+        // Обновляем при открытии, если данные устарели (фоновая синхронизация может не успеть).
         viewModelScope.launch {
             val last = preferences.lastSyncAt.first()
             if (last == null || Duration.between(last, clock.instant()) > STALE_AFTER) refresh(quiet = true)
