@@ -1,6 +1,7 @@
 package com.example.gasuschedule.domain.usecase
 
 import com.example.gasuschedule.domain.model.ChangeType
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.ScheduleParseException
 import com.example.gasuschedule.domain.model.SemesterSchedule
@@ -71,9 +72,9 @@ class SyncScheduleUseCaseTest {
     fun `сетевая ошибка - снепшот не трогаем`() = runTest {
         repo.remote = { base }
         sync()
-        repo.remote = { throw ScheduleNetworkException("Нет связи с сайтом расписания") }
+        repo.remote = { throw ScheduleNetworkException("Нет связи с сайтом расписания", problem = NetworkProblem.OFFLINE) }
         val r = sync()
-        assertEquals(SyncResult.Failure(SyncResult.Reason.NETWORK, "Нет связи с сайтом расписания"), r)
+        assertEquals(SyncResult.Failure(SyncResult.Reason.NETWORK, "Нет связи с сайтом расписания", NetworkProblem.OFFLINE), r)
         assertEquals("при ошибке будильники не трогаем", 1, replan.requests)
         assertEquals(base, repo.snapshot(GROUP))
     }
@@ -81,6 +82,12 @@ class SyncScheduleUseCaseTest {
     @Test
     fun `ошибка разбора`() = runTest {
         repo.remote = { throw ScheduleParseException("Не распознан заголовок недели") }
+        assertEquals(SyncResult.Reason.PARSE, (sync() as SyncResult.Failure).reason)
+    }
+
+    @Test
+    fun `неожиданное исключение при разборе не роняет приложение`() = runTest {
+        repo.remote = { throw IllegalStateException("битый ответ") }
         assertEquals(SyncResult.Reason.PARSE, (sync() as SyncResult.Failure).reason)
     }
 

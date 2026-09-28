@@ -1,5 +1,6 @@
 package com.example.gasuschedule.presentation.onboarding
 
+import com.example.gasuschedule.presentation.common.networkMessage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
@@ -66,7 +67,7 @@ class OnboardingViewModel @Inject constructor(
             val groups = try {
                 GroupsState.Loaded(repository.fetchGroups())
             } catch (e: ScheduleNetworkException) {
-                GroupsState.Error("Не удалось загрузить список групп. Можно ввести название точно, как на сайте.")
+                GroupsState.Error("${networkMessage(e.problem, "сайт расписания")} Список групп не загрузился — можно ввести название точно, как на сайте.")
             }
             _state.update { it.copy(groups = groups).withMatches() }
         }

@@ -1,5 +1,6 @@
 package com.example.gasuschedule.presentation.onboarding
 
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.StudyGroup
 import com.example.gasuschedule.domain.usecase.ScheduleDiffer
@@ -67,13 +68,13 @@ class OnboardingViewModelTest {
 
     @Test
     fun `сеть упала при загрузке расписания - группа не сохраняется, есть сообщение`() {
-        repo.remote = { throw ScheduleNetworkException("нет сети") }
+        repo.remote = { throw ScheduleNetworkException("нет сети", problem = NetworkProblem.OFFLINE) }
         val vm = vm()
         vm.select(catalog[1])
         vm.submit()
         assertFalse(vm.state.value.done)
         assertNull(prefs.groupName.value)
-        assertTrue(vm.state.value.error!!.contains("нет связи"))
+        assertEquals("Нет подключения к интернету.", vm.state.value.error)
     }
 
     @Test

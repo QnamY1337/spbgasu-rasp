@@ -2,6 +2,7 @@ package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.domain.model.GeoPoint
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.repository.AddressSearch
 import kotlinx.coroutines.Dispatchers
@@ -70,11 +71,11 @@ class NominatimAddressSearch(
     private suspend fun get(url: HttpUrl): String = withContext(Dispatchers.IO) {
         try {
             client.newCall(Request.Builder().url(url).header("User-Agent", USER_AGENT).build()).execute().use { resp ->
-                if (!resp.isSuccessful) throw ScheduleNetworkException("HTTP ${resp.code} от геокодера")
+                if (!resp.isSuccessful) throw ScheduleNetworkException("HTTP ${resp.code} от геокодера", problem = NetworkProblem.ofHttp(resp.code))
                 resp.body.string()
             }
         } catch (e: IOException) {
-            throw ScheduleNetworkException("Нет связи с сервисом поиска адресов", e)
+            throw ScheduleNetworkException("Нет связи с сервисом поиска адресов", e, NetworkProblem.of(e))
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.gasuschedule.domain.usecase
 
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleChange
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.ScheduleParseException
@@ -7,6 +8,7 @@ import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.repository.WidgetUpdater
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -24,7 +26,8 @@ sealed interface SyncResult {
     /** У группы нет ни одной пары — скорее всего, опечатка в названии. */
     data object GroupNotFound : SyncResult
 
-    data class Failure(val reason: Reason, val message: String) : SyncResult
+    /** [problem] — уточнение для [Reason.NETWORK]: нет интернета, таймаут, сервер лежит. */
+    data class Failure(val reason: Reason, val message: String, val problem: NetworkProblem? = null) : SyncResult
 
     enum class Reason {
         NETWORK,
@@ -54,9 +57,14 @@ class SyncScheduleUseCase @Inject constructor(
         val fresh = try {
             repository.fetchRemote(groupName)
         } catch (e: ScheduleNetworkException) {
-            return SyncResult.Failure(SyncResult.Reason.NETWORK, e.message.orEmpty())
+            return SyncResult.Failure(SyncResult.Reason.NETWORK, e.message.orEmpty(), e.problem)
         } catch (e: ScheduleParseException) {
             return SyncResult.Failure(SyncResult.Reason.PARSE, e.message.orEmpty())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Неожиданный ответ сайта (битый JSON, NPE в разборе) не должен ронять приложение.
+            return SyncResult.Failure(SyncResult.Reason.PARSE, e.toString())
         }
 
         val old = repository.getSnapshot(groupName)

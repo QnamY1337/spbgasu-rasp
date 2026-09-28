@@ -1,6 +1,7 @@
 package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.data.remote.dto.BitrixAjaxResponse
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.domain.model.StudyGroup
@@ -106,11 +107,11 @@ class BitrixScheduleSource(
 
     private fun execute(request: Request): String = try {
         http.newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) throw ScheduleNetworkException("HTTP ${resp.code} от ${request.url.host}")
+            if (!resp.isSuccessful) throw ScheduleNetworkException("HTTP ${resp.code} от ${request.url.host}", problem = NetworkProblem.ofHttp(resp.code))
             resp.body.string()
         }
     } catch (e: IOException) {
-        throw ScheduleNetworkException("Нет связи с сайтом расписания", e)
+        throw ScheduleNetworkException("Нет связи с сайтом расписания", e, NetworkProblem.of(e))
     }
 
     private class InMemoryCookieJar : CookieJar {

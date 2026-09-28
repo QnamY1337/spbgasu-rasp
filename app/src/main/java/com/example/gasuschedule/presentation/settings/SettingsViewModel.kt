@@ -1,5 +1,6 @@
 package com.example.gasuschedule.presentation.settings
 
+import com.example.gasuschedule.presentation.common.networkMessage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gasuschedule.domain.model.GeoPoint
@@ -177,7 +178,7 @@ class SettingsViewModel @Inject constructor(
                     error = if (found.isEmpty()) "Ничего не нашлось. Попробуйте «улица, дом»." else null,
                 )
             } catch (e: ScheduleNetworkException) {
-                AddressSearchState(error = "Нет связи с сервисом поиска адресов")
+                AddressSearchState(error = networkMessage(e.problem, "сервис поиска адресов"))
             }
         }
     }

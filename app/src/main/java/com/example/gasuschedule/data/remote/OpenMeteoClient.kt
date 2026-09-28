@@ -1,6 +1,7 @@
 package com.example.gasuschedule.data.remote
 
 import com.example.gasuschedule.domain.model.GeoPoint
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -56,11 +57,11 @@ class OpenMeteoClient(
             .build()
         val body = try {
             client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
-                if (!resp.isSuccessful) throw ScheduleNetworkException("HTTP ${resp.code} от сервиса погоды")
+                if (!resp.isSuccessful) throw ScheduleNetworkException("HTTP ${resp.code} от сервиса погоды", problem = NetworkProblem.ofHttp(resp.code))
                 resp.body.string()
             }
         } catch (e: IOException) {
-            throw ScheduleNetworkException("Нет связи с сервисом погоды", e)
+            throw ScheduleNetworkException("Нет связи с сервисом погоды", e, NetworkProblem.of(e))
         }
         parse(body)
     }

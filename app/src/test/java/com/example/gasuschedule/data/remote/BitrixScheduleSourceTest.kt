@@ -1,5 +1,6 @@
 package com.example.gasuschedule.data.remote
 
+import com.example.gasuschedule.domain.model.NetworkProblem
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -78,9 +79,27 @@ class BitrixScheduleSourceTest {
         assertEquals(1, server.requestCount)
     }
 
-    @Test(expected = ScheduleNetworkException::class)
-    fun `HTTP 500 - понятная сетевая ошибка`() = runTest {
+    private suspend fun problemOf(block: suspend () -> Unit): NetworkProblem {
+        try {
+            block()
+        } catch (e: ScheduleNetworkException) {
+            return e.problem
+        }
+        throw AssertionError("ожидалась ScheduleNetworkException")
+    }
+
+    @Test
+    fun `HTTP 500 - сервер недоступен, 403 - отказ`() = runTest {
         server.enqueue(MockResponse.Builder().code(500).build())
-        source().fetchSchedule("3-ТТП-26")
+        assertEquals(NetworkProblem.SERVER, problemOf { source().fetchSchedule("3-ТТП-26") })
+        server.enqueue(MockResponse.Builder().code(403).build())
+        assertEquals(NetworkProblem.REJECTED, problemOf { source().fetchSchedule("3-ТТП-26") })
+    }
+
+    @Test
+    fun `сервер не слушает - нет интернета`() = runTest {
+        val url = server.url("/").toString()
+        server.close()
+        assertEquals(NetworkProblem.OFFLINE, problemOf { BitrixScheduleSource(baseUrl = url).fetchSchedule("3-ТТП-26") })
     }
 }
