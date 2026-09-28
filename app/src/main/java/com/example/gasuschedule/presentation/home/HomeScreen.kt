@@ -289,7 +289,11 @@ private fun WeatherCard(weather: DayWeather, modifier: Modifier = Modifier) {
                 )
                 weather.precipitationChance?.let { chance ->
                     Text(
-                        if (weather.umbrella) "Осадки до $chance% — возьмите зонт" else "Осадки до $chance%",
+                        when {
+                            weather.umbrella -> "Осадки до $chance% — возьмите зонт"
+                            chance < 10 -> "Без осадков"
+                            else -> "Осадки до $chance%"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (weather.umbrella) scheme.primary else scheme.onSurfaceVariant,
                         fontWeight = if (weather.umbrella) FontWeight.SemiBold else null,
