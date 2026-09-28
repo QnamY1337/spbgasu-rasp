@@ -90,7 +90,13 @@ internal fun RoadCard(
             ModeToggle(road.mode, onTravelMode)
         }
         RowDivider()
-        BufferRow(road.bufferMinutes, onLeaveBuffer)
+        OptionRow(
+            title = "Запас времени",
+            value = road.bufferMinutes,
+            options = UserPreferencesRepository.LEAVE_BUFFER_OPTIONS,
+            label = { "$it мин" },
+            onSelect = onLeaveBuffer,
+        )
         RowDivider()
         SwitchRow("Напоминать, когда пора выходить", road.leaveReminders, onLeaveReminders)
     }
@@ -122,33 +128,6 @@ private fun ModeToggle(mode: TravelMode, onChange: (TravelMode) -> Unit) {
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BufferRow(minutes: Int, onSelect: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clickable { open = true }
-                .padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Запас времени", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text("$minutes мин", style = MonoStyles.time, color = MaterialTheme.colorScheme.primary)
-        }
-        Box(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp)) {
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                UserPreferencesRepository.LEAVE_BUFFER_OPTIONS.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text("$option мин", fontWeight = if (option == minutes) FontWeight.SemiBold else null) },
-                        onClick = { open = false; onSelect(option) },
-                    )
-                }
             }
         }
     }
@@ -246,4 +225,38 @@ internal fun HomeAddressDialog(
             { TextButton(onClick = onClear) { Text("Удалить адрес") } }
         } else null,
     )
+}
+
+/** Строка "Название ... значение" с выпадающим списком вариантов. */
+@Composable
+internal fun <T> OptionRow(
+    title: String,
+    value: T,
+    options: List<T>,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable { open = true }
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(label(value), style = MonoStyles.time, color = MaterialTheme.colorScheme.primary)
+        }
+        Box(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp)) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(label(option), fontWeight = if (option == value) FontWeight.SemiBold else null) },
+                        onClick = { open = false; onSelect(option) },
+                    )
+                }
+            }
+        }
+    }
 }

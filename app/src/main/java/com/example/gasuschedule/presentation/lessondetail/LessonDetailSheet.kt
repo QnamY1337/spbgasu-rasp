@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +34,7 @@ import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.model.shortLabel
 import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.presentation.common.YandexMaps
+import com.example.gasuschedule.presentation.homework.LessonHomeworkBlock
 import com.example.gasuschedule.presentation.schedule.shortDate
 import com.example.gasuschedule.presentation.schedule.shortDayName
 import com.example.gasuschedule.presentation.theme.MonoStyles
@@ -76,6 +79,7 @@ fun LessonDetailContent(detail: LessonDetail) {
     Column(
         Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp)
             .padding(bottom = 24.dp)
             .navigationBarsPadding(),
@@ -106,6 +110,9 @@ fun LessonDetailContent(detail: LessonDetail) {
                 ?: "«${l.building ?: "?"}» — нет в справочнике корпусов",
         )
         l.note?.let { InfoRow("Примечание", it) }
+
+        Spacer(Modifier.height(16.dp))
+        LessonHomeworkBlock(l)
 
         Spacer(Modifier.height(16.dp))
         RoadBlock(detail)

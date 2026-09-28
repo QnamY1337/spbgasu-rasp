@@ -41,9 +41,18 @@ data class SettingsUiState(
     val remindersEnabled: Boolean = true,
     val reminderMinutes: Int = UserPreferencesRepository.DEFAULT_REMINDER_MINUTES,
     val changeNotificationsEnabled: Boolean = true,
+    /** 0 — не напоминать о дедлайнах заданий. */
+    val homeworkReminderHours: Int = UserPreferencesRepository.DEFAULT_HOMEWORK_REMINDER_HOURS,
     val lastSyncAt: Instant? = null,
     val refreshing: Boolean = false,
     val road: RoadSettings = RoadSettings(),
+)
+
+private data class NotificationSettings(
+    val reminders: Boolean,
+    val minutes: Int,
+    val changes: Boolean,
+    val homeworkHours: Int,
 )
 
 /** Диалог выбора адреса дома. */
@@ -77,14 +86,21 @@ class SettingsViewModel @Inject constructor(
 
     val state: StateFlow<SettingsUiState> = combine(
         combine(preferences.groupName, preferences.lastSyncAt, refreshing, ::Triple),
-        combine(preferences.remindersEnabled, preferences.reminderMinutes, preferences.changeNotificationsEnabled, ::Triple),
+        combine(
+            preferences.remindersEnabled,
+            preferences.reminderMinutes,
+            preferences.changeNotificationsEnabled,
+            preferences.homeworkReminderHours,
+            ::NotificationSettings,
+        ),
         road,
-    ) { (group, lastSync, refreshing), (reminders, minutes, changes), road ->
+    ) { (group, lastSync, refreshing), (reminders, minutes, changes, homeworkHours), road ->
         SettingsUiState(
             group = group,
             remindersEnabled = reminders,
             reminderMinutes = minutes,
             changeNotificationsEnabled = changes,
+            homeworkReminderHours = homeworkHours,
             lastSyncAt = lastSync,
             refreshing = refreshing,
             road = road,
@@ -98,6 +114,11 @@ class SettingsViewModel @Inject constructor(
     fun runBackgroundSyncNow() {
         backgroundSync.runNowForDebug()
         viewModelScope.launch { _messages.send("Фоновая сверка запущена") }
+    }
+
+    fun setHomeworkReminderHours(hours: Int) = viewModelScope.launch {
+        preferences.setHomeworkReminderHours(hours)
+        reminders.requestReplan()
     }
 
     fun setChangeNotificationsEnabled(enabled: Boolean) = viewModelScope.launch {

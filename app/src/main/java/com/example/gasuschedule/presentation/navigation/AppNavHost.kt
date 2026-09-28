@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
@@ -35,9 +36,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.gasuschedule.domain.model.HomeworkPlanning
+import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.home.HomeRoute
+import com.example.gasuschedule.presentation.homework.HomeworkRoute
 import com.example.gasuschedule.presentation.onboarding.OnboardingRoute
 import com.example.gasuschedule.presentation.schedule.ScheduleRoute
 import com.example.gasuschedule.presentation.settings.SettingsRoute
@@ -47,8 +51,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.Serializable
+import java.time.Clock
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.reflect.KClass
 
@@ -63,12 +70,16 @@ data object HomeDestination
 data object ScheduleDestination
 
 @Serializable
+data object HomeworkDestination
+
+@Serializable
 data object SettingsDestination
 
 /** Вкладки нижней панели. "Замены" — вкладка внутри "Расписания", не в нижней панели. */
 private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: String) {
     HOME(HomeDestination, HomeDestination::class, "Главная"),
     SCHEDULE(ScheduleDestination, ScheduleDestination::class, "Расписание"),
+    HOMEWORK(HomeworkDestination, HomeworkDestination::class, "Задания"),
     SETTINGS(SettingsDestination, SettingsDestination::class, "Настройки"),
 }
 
@@ -76,6 +87,7 @@ private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: Str
 private fun Tab.icon(): Painter = when (this) {
     Tab.HOME -> rememberVectorPainter(Icons.Default.Home)
     Tab.SCHEDULE -> rememberVectorPainter(Icons.Default.DateRange)
+    Tab.HOMEWORK -> rememberVectorPainter(Icons.Default.Edit)
     Tab.SETTINGS -> rememberVectorPainter(Icons.Default.Settings)
 }
 
@@ -85,7 +97,14 @@ private fun Tab.icon(): Painter = when (this) {
 class NavBadgesViewModel @Inject constructor(
     preferences: UserPreferencesRepository,
     repository: ScheduleRepository,
+    homework: HomeworkRepository,
+    clock: Clock,
 ) : ViewModel() {
+    /** Горящие задания (просрочено, сегодня, завтра) — бейдж на "Заданиях". */
+    val urgentHomework: StateFlow<Int> = homework.observeAll()
+        .map { HomeworkPlanning.urgentCount(it, LocalDate.now(clock)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     val unseenChanges: StateFlow<Int> = preferences.groupName
         .flatMapLatest { group -> if (group == null) flowOf(0) else repository.observeUnseenChangesCount(group) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
@@ -102,6 +121,7 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
     val currentTab = Tab.entries.firstOrNull { tab -> entry?.destination?.hasRoute(tab.routeClass) == true }
     val badges: NavBadgesViewModel = hiltViewModel()
     val unseen by badges.unseenChanges.collectAsStateWithLifecycle()
+    val urgentHomework by badges.urgentHomework.collectAsStateWithLifecycle()
 
     // Запрос обрабатываем, когда вкладки уже на экране (при холодном старте — не сразу), и ровно один раз.
     var handledRequest by rememberSaveable { mutableIntStateOf(0) }
@@ -115,7 +135,7 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
-        bottomBar = { if (currentTab != null) BottomBar(currentTab, unseen, nav) },
+        bottomBar = { if (currentTab != null) BottomBar(currentTab, unseen, urgentHomework, nav) },
     ) { padding ->
         NavHost(
             navController = nav,
@@ -134,7 +154,10 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
                 )
             }
             composable<HomeDestination> {
-                HomeRoute(onOpenSettings = { nav.navigateToTab(Tab.SETTINGS) })
+                HomeRoute(
+                    onOpenSettings = { nav.navigateToTab(Tab.SETTINGS) },
+                    onOpenHomework = { nav.navigateToTab(Tab.HOMEWORK) },
+                )
             }
             composable<ScheduleDestination> {
                 ScheduleRoute(
@@ -142,6 +165,9 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
                     unseenChanges = unseen,
                     openChangesRequest = openChangesRequest,
                 )
+            }
+            composable<HomeworkDestination> {
+                HomeworkRoute()
             }
             composable<SettingsDestination> {
                 SettingsRoute(onChangeGroup = { nav.navigate(OnboardingDestination(changing = true)) })
@@ -158,7 +184,7 @@ private fun NavHostController.navigateToTab(tab: Tab) = navigate(tab.route) {
 }
 
 @Composable
-private fun BottomBar(current: Tab, unseenChanges: Int, nav: NavHostController) {
+private fun BottomBar(current: Tab, unseenChanges: Int, urgentHomework: Int, nav: NavHostController) {
     val scheme = MaterialTheme.colorScheme
     NavigationBar(containerColor = scheme.surface) {
         Tab.entries.forEach { tab ->
@@ -168,9 +194,12 @@ private fun BottomBar(current: Tab, unseenChanges: Int, nav: NavHostController) 
                 icon = {
                     BadgedBox(
                         badge = {
-                            if (tab == Tab.SCHEDULE && unseenChanges > 0) {
-                                Badge(containerColor = scheme.primary) { Text(unseenChanges.toString()) }
+                            val count = when (tab) {
+                                Tab.SCHEDULE -> unseenChanges
+                                Tab.HOMEWORK -> urgentHomework
+                                else -> 0
                             }
+                            if (count > 0) Badge(containerColor = scheme.primary) { Text(count.toString()) }
                         },
                     ) { Icon(tab.icon(), contentDescription = null) }
                 },

@@ -49,6 +49,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -57,6 +58,7 @@ import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.common.YandexMaps
+import com.example.gasuschedule.presentation.homework.dueText
 import com.example.gasuschedule.presentation.lessondetail.LessonDetailSheet
 import com.example.gasuschedule.presentation.schedule.CenteredDivider
 import com.example.gasuschedule.presentation.schedule.LessonCard
@@ -76,7 +78,11 @@ import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeRoute(onOpenSettings: () -> Unit, viewModel: HomeViewModel = hiltViewModel()) {
+fun HomeRoute(
+    onOpenSettings: () -> Unit,
+    onOpenHomework: () -> Unit = {},
+    viewModel: HomeViewModel = hiltViewModel(),
+) {
     StatusBarIcons(onBrickHeader = true)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val detail by viewModel.detail.collectAsStateWithLifecycle()
@@ -84,7 +90,7 @@ fun HomeRoute(onOpenSettings: () -> Unit, viewModel: HomeViewModel = hiltViewMod
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
     CompositionLocalProvider(LocalLessonClick provides viewModel::openLesson) {
-        HomeScreen(state, snackbar, onRefresh = { viewModel.refresh() }, onOpenSettings = onOpenSettings)
+        HomeScreen(state, snackbar, onRefresh = { viewModel.refresh() }, onOpenSettings = onOpenSettings, onOpenHomework = onOpenHomework)
     }
     detail?.let { LessonDetailSheet(it, onDismiss = { viewModel.openLesson(null) }) }
 }
@@ -96,6 +102,7 @@ fun HomeScreen(
     snackbar: SnackbarHostState,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenHomework: () -> Unit = {},
 ) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -119,7 +126,7 @@ fun HomeScreen(
                 onRefresh = onRefresh,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
-                if (state.loaded) HomeContent(state, onOpenSettings, listState)
+                if (state.loaded) HomeContent(state, onOpenSettings, onOpenHomework, listState)
             }
         }
     }
@@ -161,7 +168,12 @@ class HeaderCollapse {
 }
 
 @Composable
-private fun HomeContent(state: HomeUiState, onOpenSettings: () -> Unit, listState: LazyListState) {
+private fun HomeContent(
+    state: HomeUiState,
+    onOpenSettings: () -> Unit,
+    onOpenHomework: () -> Unit,
+    listState: LazyListState,
+) {
     val timings = remember(state.lessons, state.now) { lessonTimings(state.lessons, state.now) }
     val side = Modifier.padding(horizontal = 20.dp)
     LazyColumn(
@@ -173,6 +185,9 @@ private fun HomeContent(state: HomeUiState, onOpenSettings: () -> Unit, listStat
         item { WeatherSlot(side) }
         state.commute?.let { commute ->
             item { CommuteCard(commute, state, onOpenSettings, side) }
+        }
+        if (state.urgentHomework.isNotEmpty()) {
+            item { UrgentHomeworkCard(state, onOpenHomework, side) }
         }
         item { DayTitle(state, side.padding(top = 8.dp)) }
         items(state.lessons, key = { it.id }) { lesson ->
@@ -322,6 +337,53 @@ private fun CommuteCard(commute: Commute, state: HomeUiState, onOpenSettings: ()
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onPrimaryContainer.copy(alpha = 0.75f),
             )
+        }
+    }
+}
+
+/** "Задания горят": просроченные и со сроком сегодня/завтра. Тап — во вкладку "Задания". */
+@Composable
+private fun UrgentHomeworkCard(state: HomeUiState, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onOpen,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = scheme.surface,
+        border = BorderStroke(1.dp, scheme.primary),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "ЗАДАНИЯ ГОРЯТ · ${state.urgentHomework.size}",
+                style = MonoStyles.label,
+                color = scheme.primary,
+            )
+            state.urgentHomework.take(3).forEach { item ->
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        item.subject,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    item.dueDate?.let {
+                        Text(
+                            dueText(it, state.today),
+                            style = MonoStyles.label,
+                            color = if (it.isBefore(state.today)) scheme.error else scheme.primary,
+                        )
+                    }
+                }
+            }
+            if (state.urgentHomework.size > 3) {
+                Text(
+                    "и ещё ${state.urgentHomework.size - 3}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
     }
 }

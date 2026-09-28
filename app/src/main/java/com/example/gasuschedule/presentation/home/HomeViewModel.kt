@@ -3,9 +3,13 @@ package com.example.gasuschedule.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.HomeworkGroup
+import com.example.gasuschedule.domain.model.HomeworkItem
+import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.TravelMode
+import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
@@ -56,6 +60,8 @@ data class HomeUiState(
     val commute: Commute? = null,
     val home: HomeLocation? = null,
     val mode: TravelMode = TravelMode.TRANSIT,
+    /** Невыполненные задания со сроком сегодня/завтра или просроченные. */
+    val urgentHomework: List<HomeworkItem> = emptyList(),
     val refreshing: Boolean = false,
 ) {
     val today: LocalDate get() = now.toLocalDate()
@@ -69,6 +75,7 @@ class HomeViewModel @Inject constructor(
     private val preferences: UserPreferencesRepository,
     private val sync: SyncScheduleUseCase,
     private val clock: Clock,
+    homework: HomeworkRepository,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
@@ -93,7 +100,7 @@ class HomeViewModel @Inject constructor(
 
     private val road = combine(preferences.home, preferences.travelMode, preferences.leaveBufferMinutes, ::Triple)
 
-    val state: StateFlow<HomeUiState> = combine(data, road, now, refreshing) { (group, lessons, weeks), (home, mode, buffer), now, refreshing ->
+    val state: StateFlow<HomeUiState> = combine(data, road, now, refreshing, homework.observeAll()) { (group, lessons, weeks), (home, mode, buffer), now, refreshing, tasks ->
         val byDate = lessons.groupBy { it.date }
         val shown = shownDate(byDate, now)
         HomeUiState(
@@ -110,6 +117,8 @@ class HomeViewModel @Inject constructor(
             home = home,
             mode = mode,
             refreshing = refreshing,
+            urgentHomework = tasks.filter { HomeworkPlanning.group(it, now.toLocalDate()) == HomeworkGroup.URGENT }
+                .sortedWith(compareBy(nullsLast()) { it.dueDate }),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

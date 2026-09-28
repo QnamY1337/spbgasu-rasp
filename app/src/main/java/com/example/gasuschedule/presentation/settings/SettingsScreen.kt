@@ -135,6 +135,7 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
         onTravelMode = { viewModel.setTravelMode(it) },
         onLeaveBuffer = { viewModel.setLeaveBuffer(it) },
         onLeaveReminders = { viewModel.setLeaveReminders(it) },
+        onHomeworkHours = { viewModel.setHomeworkReminderHours(it) },
     )
 
     if (showHomeDialog) {
@@ -207,6 +208,7 @@ fun SettingsScreen(
     onTravelMode: (TravelMode) -> Unit = {},
     onLeaveBuffer: (Int) -> Unit = {},
     onLeaveReminders: (Boolean) -> Unit = {},
+    onHomeworkHours: (Int) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Scaffold(
@@ -244,6 +246,14 @@ fun SettingsScreen(
                 MinutesRow(state.reminderMinutes, enabled = state.remindersEnabled, onSelect = onReminderMinutes)
                 RowDivider()
                 SwitchRow("Изменения в расписании", state.changeNotificationsEnabled, onChangeNotifications)
+                RowDivider()
+                OptionRow(
+                    title = "Дедлайны заданий",
+                    value = state.homeworkReminderHours,
+                    options = UserPreferencesRepository.HOMEWORK_REMINDER_OPTIONS,
+                    label = { if (it == 0) "выкл" else "за $it ч" },
+                    onSelect = onHomeworkHours,
+                )
                 RowDivider()
                 WidgetRow(widget, onAddWidget)
                 if ((state.remindersEnabled || state.changeNotificationsEnabled) && !permissions.notificationsAllowed) {
