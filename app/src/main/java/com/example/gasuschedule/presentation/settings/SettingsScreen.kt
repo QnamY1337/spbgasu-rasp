@@ -59,6 +59,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.gasuschedule.BuildConfig
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.theme.MonoStyles
@@ -95,6 +96,7 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
         snackbar = snackbar,
         onChangeGroup = onChangeGroup,
         onRemindersEnabled = { viewModel.setRemindersEnabled(it) },
+        onChangeNotifications = { viewModel.setChangeNotificationsEnabled(it) },
         onReminderMinutes = { viewModel.setReminderMinutes(it) },
         onRequestNotifications = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permissions.notificationsPermissionAsked) {
@@ -115,6 +117,7 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
             )
         },
         onRefresh = viewModel::refresh,
+        onDebugBackgroundSync = if (BuildConfig.DEBUG) viewModel::runBackgroundSyncNow else null,
     )
 }
 
@@ -160,11 +163,13 @@ fun SettingsScreen(
     snackbar: SnackbarHostState,
     onChangeGroup: () -> Unit,
     onRemindersEnabled: (Boolean) -> Unit,
+    onChangeNotifications: (Boolean) -> Unit,
     onReminderMinutes: (Int) -> Unit,
     onRequestNotifications: () -> Unit,
     onRequestExactAlarms: () -> Unit,
     onTestNotification: () -> Unit,
     onRefresh: () -> Unit,
+    onDebugBackgroundSync: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     Scaffold(
@@ -199,10 +204,12 @@ fun SettingsScreen(
                 SwitchRow("Напоминать о парах", state.remindersEnabled, onRemindersEnabled)
                 RowDivider()
                 MinutesRow(state.reminderMinutes, enabled = state.remindersEnabled, onSelect = onReminderMinutes)
-                if (state.remindersEnabled && !permissions.notificationsAllowed) {
+                RowDivider()
+                SwitchRow("Изменения в расписании", state.changeNotificationsEnabled, onChangeNotifications)
+                if ((state.remindersEnabled || state.changeNotificationsEnabled) && !permissions.notificationsAllowed) {
                     RowDivider()
                     WarningRow(
-                        text = "Уведомления запрещены — напоминания не придут.",
+                        text = "Уведомления запрещены — напоминания и сообщения о заменах не придут.",
                         action = "Разрешить",
                         onClick = onRequestNotifications,
                     )
@@ -253,6 +260,11 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center,
                 )
+            }
+            if (onDebugBackgroundSync != null) {
+                TextButton(onClick = onDebugBackgroundSync, modifier = Modifier.fillMaxWidth()) {
+                    Text("Отладка: фоновая сверка сейчас", style = MonoStyles.label)
+                }
             }
         }
     }

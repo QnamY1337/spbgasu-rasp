@@ -47,7 +47,15 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[REMINDER_MINUTES] = minutes }
     }
 
+    override val changeNotificationsEnabled: Flow<Boolean> =
+        dataStore.data.map { it[CHANGE_NOTIFICATIONS] ?: true }.distinctUntilChanged()
+
+    override suspend fun setChangeNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[CHANGE_NOTIFICATIONS] = enabled }
+    }
+
     private companion object {
+        val CHANGE_NOTIFICATIONS = booleanPreferencesKey("change_notifications")
         val GROUP_NAME = stringPreferencesKey("group_name")
         val LAST_SYNC_AT = longPreferencesKey("last_sync_at")
         val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")

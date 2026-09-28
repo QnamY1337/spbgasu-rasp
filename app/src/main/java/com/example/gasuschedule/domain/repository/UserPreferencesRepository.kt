@@ -18,6 +18,10 @@ interface UserPreferencesRepository {
     val reminderMinutes: Flow<Int>
     suspend fun setReminderMinutes(minutes: Int)
 
+    /** Уведомлять ли о заменах, найденных фоновой синхронизацией. */
+    val changeNotificationsEnabled: Flow<Boolean>
+    suspend fun setChangeNotificationsEnabled(enabled: Boolean)
+
     companion object {
         const val DEFAULT_REMINDER_MINUTES = 15
         val REMINDER_MINUTES_OPTIONS = listOf(5, 10, 15, 30, 60)

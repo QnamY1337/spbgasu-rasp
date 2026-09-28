@@ -70,6 +70,9 @@ class FakePreferences(group: String? = GROUP) : UserPreferencesRepository {
 
     override val reminderMinutes = MutableStateFlow(UserPreferencesRepository.DEFAULT_REMINDER_MINUTES)
     override suspend fun setReminderMinutes(minutes: Int) { reminderMinutes.value = minutes }
+
+    override val changeNotificationsEnabled = MutableStateFlow(true)
+    override suspend fun setChangeNotificationsEnabled(enabled: Boolean) { changeNotificationsEnabled.value = enabled }
 }
 
 class FakeReminderScheduler : ReminderScheduler {

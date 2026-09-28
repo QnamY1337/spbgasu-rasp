@@ -1,5 +1,6 @@
 package com.example.gasuschedule.presentation
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +23,7 @@ import com.example.gasuschedule.presentation.navigation.AppNavHost
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -37,6 +39,9 @@ class StartViewModel @Inject constructor(preferences: UserPreferencesRepository)
      */
     val hasGroup: StateFlow<Boolean?> = flow { emit(preferences.groupName.first() != null) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Счётчик запросов "открыть замены" из уведомлений; во ViewModel — чтобы пережить поворот. */
+    val openChangesRequest = MutableStateFlow(0)
 }
 
 @AndroidEntryPoint
@@ -48,17 +53,35 @@ class MainActivity : ComponentActivity() {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         splash.setKeepOnScreenCondition { startViewModel.hasGroup.value == null }
-        // Шапка всегда тёмно-кирпичная, поэтому иконки статус-бара светлые в обеих темах.
+        // Иконки статус-бара по умолчанию светлые (под кирпичной шапкой); экраны без шапки
+        // переключают их сами — см. StatusBarIcons.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
+        // При пересоздании Activity (поворот) intent тот же — повторно не обрабатываем.
+        if (savedInstanceState == null) handleIntent(intent)
 
         setContent {
             GasuTheme {
                 val hasGroup by startViewModel.hasGroup.collectAsStateWithLifecycle()
+                val openChanges by startViewModel.openChangesRequest.collectAsStateWithLifecycle()
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     // Стартовый экран выбираем один раз; дальше переходами управляет навигация.
-                    hasGroup?.let { AppNavHost(hasGroup = it) }
+                    hasGroup?.let { AppNavHost(hasGroup = it, openChangesRequest = openChanges) }
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getStringExtra(EXTRA_OPEN) == OPEN_CHANGES) startViewModel.openChangesRequest.value++
+    }
+
+    companion object {
+        const val EXTRA_OPEN = "open"
+        const val OPEN_CHANGES = "changes"
     }
 }
