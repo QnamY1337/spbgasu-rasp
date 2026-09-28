@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.example.gasuschedule.domain.model.HomeworkPlanning
+import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.presentation.schedule.shortDate
 import com.example.gasuschedule.presentation.schedule.shortDayName
 import com.example.gasuschedule.presentation.theme.MonoStyles
@@ -53,14 +55,32 @@ data class HomeworkDraft(
     val subject: String = "",
     val description: String = "",
     val dueDate: LocalDate? = null,
+    /** Практика, лаба или лекция — срок "к следующей" паре этого типа. null — любой. */
+    val lessonType: LessonType? = null,
 )
 
 /** "ВТ 06.10". */
 internal fun dayShort(date: LocalDate) = "${shortDayName(date)} ${shortDate(date)}"
 
+/** "лекции", "практике", "лабораторной", иначе "паре" — для "К след. …". */
+internal fun nextOfType(type: LessonType?) = when (type) {
+    LessonType.LECTURE -> "лекции"
+    LessonType.PRACTICE -> "практике"
+    LessonType.LAB -> "лабораторной"
+    else -> "паре"
+}
+
+private fun typeChipLabel(type: LessonType) = when (type) {
+    LessonType.LECTURE -> "Лекция"
+    LessonType.PRACTICE -> "Практика"
+    LessonType.LAB -> "Лаб."
+    LessonType.OTHER -> "Другое"
+}
+
 /**
- * Редактор задания: предмет (с подсказками из расписания), что задали, срок.
- * Срок по умолчанию — к следующей паре по предмету ([nextLessonDate]).
+ * Редактор задания: предмет (с подсказками из расписания), к какому типу пары, что задали, срок.
+ * Срок по умолчанию — к следующей паре того же типа ([nextLessonDate]): практика к практике,
+ * лаба к лабе.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -68,7 +88,8 @@ fun HomeworkEditorSheet(
     initial: HomeworkDraft,
     subjects: List<String>,
     today: LocalDate,
-    nextLessonDate: (String) -> LocalDate?,
+    typesOf: (String) -> List<LessonType>,
+    nextLessonDate: (subject: String, type: LessonType?) -> LocalDate?,
     onSave: (HomeworkDraft) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -76,9 +97,17 @@ fun HomeworkEditorSheet(
     var subject by rememberSaveable { mutableStateOf(initial.subject) }
     var description by rememberSaveable { mutableStateOf(initial.description) }
     var due by remember { mutableStateOf(initial.dueDate) }
+    var type by remember { mutableStateOf(initial.lessonType) }
     var pickDate by remember { mutableStateOf(false) }
     var subjectsOpen by remember { mutableStateOf(false) }
-    val next = remember(subject) { nextLessonDate(subject) }
+    val types = remember(subject) { typesOf(subject) }
+    val next = remember(subject, type) { nextLessonDate(subject, type) }
+    // Срок стоял "к следующей паре" — при смене типа или предмета он переезжает вместе с ней.
+    var previousNext by remember { mutableStateOf(next) }
+    LaunchedEffect(next) {
+        if (due == previousNext && next != null) due = next
+        previousNext = next
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -131,12 +160,24 @@ fun HomeworkEditorSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            if (types.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text("К КАКОЙ ПАРЕ", style = MonoStyles.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    types.forEach { t ->
+                        // Повторный тап снимает выбор: тогда срок — к любой следующей паре.
+                        DueChip(typeChipLabel(t), selected = type == t) { type = if (type == t) null else t }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             Text("СРОК", style = MonoStyles.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val options = buildList {
-                    next?.let { add("К след. паре · ${dayShort(it)}" to it) }
+                    next?.let { add("К след. ${nextOfType(type?.takeIf { t -> t in types })} · ${dayShort(it)}" to it) }
                     add("Завтра" to today.plusDays(1))
                     add("Через неделю" to today.plusWeeks(1))
                 }
@@ -154,7 +195,14 @@ fun HomeworkEditorSheet(
                 Spacer(Modifier.weight(1f))
                 Button(
                     onClick = {
-                        onSave(initial.copy(subject = subject, description = description, dueDate = due))
+                        onSave(
+                            initial.copy(
+                                subject = subject,
+                                description = description,
+                                dueDate = due,
+                                lessonType = type?.takeIf { it in types },
+                            ),
+                        )
                     },
                     enabled = subject.isNotBlank() && description.isNotBlank(),
                     shape = MaterialTheme.shapes.medium,

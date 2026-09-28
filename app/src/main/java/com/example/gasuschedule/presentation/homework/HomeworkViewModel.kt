@@ -6,6 +6,7 @@ import com.example.gasuschedule.domain.model.HomeworkGroup
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
+import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
@@ -34,13 +35,20 @@ data class HomeworkUiState(
     val urgentCount: Int get() = HomeworkPlanning.urgentCount(items, today)
     val subjects: List<String> get() = lessons.map { it.subject }.distinct().sorted()
 
-    fun nextLessonDate(subject: String, after: LocalDate = today): LocalDate? =
-        HomeworkPlanning.nextLessonDate(subject, after, lessons)
+    fun nextLessonDate(subject: String, after: LocalDate = today, type: LessonType? = null): LocalDate? =
+        HomeworkPlanning.nextLessonDate(subject, after, lessons, type)
 
-    /** Задания пары: заданные на ней и те, что нужно сдать к ней. */
+    fun typesOf(subject: String): List<LessonType> = HomeworkPlanning.typesOf(subject, lessons)
+
+    /**
+     * Задания пары: заданные на ней и те, что нужно сдать к ней. Задание к практике
+     * не показывается под лекцией того же дня (и наоборот).
+     */
     fun forLesson(lesson: Lesson): List<HomeworkItem> = items.filter {
         it.lessonId == lesson.id ||
-            (it.dueDate == lesson.date && HomeworkPlanning.sameSubject(it.subject, lesson.subject))
+            (it.dueDate == lesson.date &&
+                HomeworkPlanning.sameSubject(it.subject, lesson.subject) &&
+                (it.lessonType == null || it.lessonType == lesson.type))
     }
 }
 
@@ -66,7 +74,7 @@ class HomeworkViewModel @Inject constructor(
     fun toggle(item: HomeworkItem) = viewModelScope.launch { manage.setDone(item.id, !item.isDone) }
 
     fun save(draft: HomeworkDraft) = viewModelScope.launch {
-        manage.save(draft.id, draft.lessonId, draft.subject, draft.description, draft.dueDate)
+        manage.save(draft.id, draft.lessonId, draft.subject, draft.description, draft.dueDate, draft.lessonType)
     }
 
     fun delete(id: String) = viewModelScope.launch { manage.delete(id) }

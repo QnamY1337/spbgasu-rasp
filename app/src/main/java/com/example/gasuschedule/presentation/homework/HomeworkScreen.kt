@@ -45,6 +45,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.HomeworkGroup
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.Lesson
+import com.example.gasuschedule.domain.model.LessonType
+import com.example.gasuschedule.domain.model.shortLabel
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.schedule.pluralRu
 import com.example.gasuschedule.presentation.theme.GasuTheme
@@ -104,7 +106,7 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
                 }
                 items(items, key = { it.id }) { item ->
                     HomeworkRow(item, state.today, onToggle = { viewModel.toggle(item) }, onClick = {
-                        editing = HomeworkDraft(item.id, item.lessonId, item.subject, item.description, item.dueDate)
+                        editing = HomeworkDraft(item.id, item.lessonId, item.subject, item.description, item.dueDate, item.lessonType)
                     })
                 }
             }
@@ -116,7 +118,8 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
             initial = draft,
             subjects = state.subjects,
             today = state.today,
-            nextLessonDate = { state.nextLessonDate(it) },
+            typesOf = state::typesOf,
+            nextLessonDate = { subject, type -> state.nextLessonDate(subject, type = type) },
             onSave = { viewModel.save(it); editing = null },
             onDelete = draft.id?.let { id -> { viewModel.delete(id); editing = null } },
             onDismiss = { editing = null },
@@ -158,7 +161,7 @@ internal fun HomeworkRow(
             Column(Modifier.weight(1f).padding(top = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        item.subject,
+                        item.subject + (item.lessonType?.let { " (${it.shortLabel})" } ?: ""),
                         style = MaterialTheme.typography.titleSmall,
                         color = if (item.isDone) faint else scheme.onSurface,
                         maxLines = 1,
@@ -223,7 +226,7 @@ fun LessonHomeworkBlock(lesson: Lesson, viewModel: HomeworkViewModel = hiltViewM
                 item,
                 state.today,
                 onToggle = { viewModel.toggle(item) },
-                onClick = { editing = HomeworkDraft(item.id, item.lessonId, item.subject, item.description, item.dueDate) },
+                onClick = { editing = HomeworkDraft(item.id, item.lessonId, item.subject, item.description, item.dueDate, item.lessonType) },
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }
@@ -232,7 +235,8 @@ fun LessonHomeworkBlock(lesson: Lesson, viewModel: HomeworkViewModel = hiltViewM
                 editing = HomeworkDraft(
                     lessonId = lesson.id,
                     subject = lesson.subject,
-                    dueDate = state.nextLessonDate(lesson.subject, after = lesson.date),
+                    dueDate = state.nextLessonDate(lesson.subject, after = lesson.date, type = lesson.type),
+                    lessonType = lesson.type.takeIf { it != LessonType.OTHER },
                 )
             },
             shape = MaterialTheme.shapes.medium,
@@ -251,7 +255,8 @@ fun LessonHomeworkBlock(lesson: Lesson, viewModel: HomeworkViewModel = hiltViewM
             initial = draft,
             subjects = state.subjects,
             today = state.today,
-            nextLessonDate = { state.nextLessonDate(it, after = lesson.date) },
+            typesOf = state::typesOf,
+            nextLessonDate = { subject, type -> state.nextLessonDate(subject, after = lesson.date, type = type) },
             onSave = { viewModel.save(it); editing = null },
             onDelete = draft.id?.let { id -> { viewModel.delete(id); editing = null } },
             onDismiss = { editing = null },
