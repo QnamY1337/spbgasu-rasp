@@ -45,8 +45,13 @@ data class HomeUiState(
     val group: String? = null,
     val now: LocalDateTime = LocalDateTime.MIN,
     val week: ScheduleWeek? = null,
-    /** День, чьи пары показаны: сегодня, а если сегодня пар нет — ближайший учебный день. */
+    /**
+     * День, чьи пары показаны: сегодня, а через 20 минут после последней пары
+     * (или если сегодня пар нет) — ближайший учебный день.
+     */
     val shownDate: LocalDate? = null,
+    /** Сегодня пары были, но уже закончились. */
+    val todayFinished: Boolean = false,
     val lessons: List<Lesson> = emptyList(),
     val commute: Commute? = null,
     val home: HomeLocation? = null,
@@ -90,8 +95,9 @@ class HomeViewModel @Inject constructor(
 
     val state: StateFlow<HomeUiState> = combine(data, road, now, refreshing) { (group, lessons, weeks), (home, mode, buffer), now, refreshing ->
         val byDate = lessons.groupBy { it.date }
-        val shown = shownDate(byDate, now.toLocalDate())
+        val shown = shownDate(byDate, now)
         HomeUiState(
+            todayFinished = todayFinished(byDate, now),
             loaded = true,
             group = group,
             now = now,
@@ -148,10 +154,24 @@ class HomeViewModel @Inject constructor(
         private const val LOOKAHEAD_DAYS = 14L
         private val STALE_AFTER = Duration.ofHours(3)
 
-        /** Сегодня, если сегодня есть пары; иначе ближайший день с парами (или null). */
-        fun shownDate(byDate: Map<LocalDate, List<Lesson>>, today: LocalDate): LocalDate? =
-            if (byDate[today].orEmpty().isNotEmpty()) today
-            else byDate.keys.filter { it.isAfter(today) }.minOrNull()
+        /** Через сколько после конца последней пары главная переключается на следующий день. */
+        val SWITCH_AFTER_LAST_LESSON: Duration = Duration.ofMinutes(20)
+
+        /** Сегодняшние пары были, но закончились (с запасом [SWITCH_AFTER_LAST_LESSON]). */
+        fun todayFinished(byDate: Map<LocalDate, List<Lesson>>, now: LocalDateTime): Boolean {
+            val lastEnd = byDate[now.toLocalDate()].orEmpty().maxOfOrNull { it.endTime } ?: return false
+            return !now.isBefore(now.toLocalDate().atTime(lastEnd).plus(SWITCH_AFTER_LAST_LESSON))
+        }
+
+        /**
+         * Сегодня, пока пары идут и ещё 20 минут после последней; потом — ближайший следующий
+         * день с парами. Если сегодня пар нет — тоже ближайший день (или null).
+         */
+        fun shownDate(byDate: Map<LocalDate, List<Lesson>>, now: LocalDateTime): LocalDate? {
+            val today = now.toLocalDate()
+            if (byDate[today].orEmpty().isNotEmpty() && !todayFinished(byDate, now)) return today
+            return byDate.keys.filter { it.isAfter(today) }.minOrNull()
+        }
 
         /**
          * Первая пара ближайшего учебного дня, к которой ещё предстоит выходить из дома:

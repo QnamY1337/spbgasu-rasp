@@ -333,17 +333,26 @@ private fun DayTitle(state: HomeUiState, modifier: Modifier = Modifier) {
     Column(modifier) {
         when {
             date == null -> Text("В ближайшие две недели пар нет", style = MaterialTheme.typography.titleLarge, color = muted)
-            date == state.today -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Сегодня", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                Text(lessonsCount(state.lessons.size), style = MonoStyles.label, color = muted)
-            }
             else -> {
-                Text("Сегодня пар нет", style = MaterialTheme.typography.titleLarge, color = muted)
-                Text(
-                    "Ближайшие — ${dayLabel(date, state.today).lowercase()}, ${lessonsCount(state.lessons.size)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = muted,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        when (date) {
+                            state.today -> "Сегодня"
+                            state.today.plusDays(1) -> "Завтра"
+                            else -> dayTitle(date)
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(lessonsCount(state.lessons.size), style = MonoStyles.label, color = muted)
+                }
+                if (date != state.today) {
+                    Text(
+                        if (state.todayFinished) "Пары на сегодня закончились" else "Сегодня пар нет",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = muted,
+                    )
+                }
             }
         }
     }

@@ -34,10 +34,26 @@ class HomeTest {
     @Test
     fun `показываемый день - сегодня или ближайший учебный`() {
         val byDate = all.groupBy { it.date }
-        assertEquals(d(28), HomeViewModel.shownDate(byDate, d(28)))
-        assertEquals("воскресенье без пар", d(28), HomeViewModel.shownDate(byDate, d(27)))
-        assertEquals(d(29), HomeViewModel.shownDate(tue.groupBy { it.date }, d(28)))
-        assertNull(HomeViewModel.shownDate(emptyMap(), d(28)))
+        assertEquals(d(28), HomeViewModel.shownDate(byDate, d(28).atTime(8, 0)))
+        assertEquals("воскресенье без пар", d(28), HomeViewModel.shownDate(byDate, d(27).atTime(12, 0)))
+        assertEquals(d(29), HomeViewModel.shownDate(tue.groupBy { it.date }, d(28).atTime(8, 0)))
+        assertNull(HomeViewModel.shownDate(emptyMap(), d(28).atTime(8, 0)))
+    }
+
+    @Test
+    fun `через 20 минут после последней пары - следующий день`() {
+        val byDate = all.groupBy { it.date } // последняя пара понедельника — 3-я, до 14:00
+        assertEquals("пара идёт", d(28), HomeViewModel.shownDate(byDate, d(28).atTime(13, 0)))
+        assertEquals("10 минут после", d(28), HomeViewModel.shownDate(byDate, d(28).atTime(14, 10)))
+        assertEquals("19:59 после", d(28), HomeViewModel.shownDate(byDate, d(28).atTime(14, 19, 59)))
+        assertEquals("ровно 20 минут", d(29), HomeViewModel.shownDate(byDate, d(28).atTime(14, 20)))
+        assertEquals(d(29), HomeViewModel.shownDate(byDate, d(28).atTime(21, 0)))
+
+        assertTrue(HomeViewModel.todayFinished(byDate, d(28).atTime(14, 20)))
+        assertTrue(!HomeViewModel.todayFinished(byDate, d(28).atTime(14, 19)))
+        assertTrue("сегодня пар не было — не «закончились»", !HomeViewModel.todayFinished(byDate, d(27).atTime(20, 0)))
+        // После последней пары недели показывать нечего.
+        assertNull(HomeViewModel.shownDate(byDate, d(29).atTime(14, 20)))
     }
 
     @Test
