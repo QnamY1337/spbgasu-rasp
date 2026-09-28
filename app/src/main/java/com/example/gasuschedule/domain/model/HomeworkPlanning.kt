@@ -26,15 +26,28 @@ object HomeworkPlanning {
      */
     fun deadline(item: HomeworkItem, lessons: List<Lesson>): LocalDateTime? {
         val due = item.dueDate ?: return null
-        val lessonStart = lessons
-            .filter { it.date == due && sameSubject(it.subject, item.subject) }
+        val sameDay = lessons.filter { it.date == due && sameSubject(it.subject, item.subject) }
+        // Задание к практике сдаётся на практике: если в этот день есть и лекция, берём практику.
+        val lessonStart = (sameDay.filter { it.type == item.lessonType }.ifEmpty { sameDay })
             .minOfOrNull { it.startTime }
         return due.atTime(lessonStart ?: DEFAULT_DEADLINE_TIME)
     }
 
-    /** Дата следующей пары по предмету после [after] — срок "к следующей паре". */
-    fun nextLessonDate(subject: String, after: LocalDate, lessons: List<Lesson>): LocalDate? =
-        lessons.filter { sameSubject(it.subject, subject) && it.date.isAfter(after) }.minOfOrNull { it.date }
+    /**
+     * Дата следующей пары по предмету после [after] — срок "к следующей паре".
+     * С [type] — следующая пара того же типа (практика к практике, лаба к лабе);
+     * если такой впереди нет — любая следующая пара по предмету.
+     */
+    fun nextLessonDate(subject: String, after: LocalDate, lessons: List<Lesson>, type: LessonType? = null): LocalDate? {
+        val next = lessons.filter { sameSubject(it.subject, subject) && it.date.isAfter(after) }
+        val sameType = if (type == null || type == LessonType.OTHER) emptyList() else next.filter { it.type == type }
+        return sameType.ifEmpty { next }.minOfOrNull { it.date }
+    }
+
+    /** Типы занятий предмета в расписании — для выбора "к какой паре" в редакторе. */
+    fun typesOf(subject: String, lessons: List<Lesson>): List<LessonType> =
+        lessons.filter { sameSubject(it.subject, subject) && it.type != LessonType.OTHER }
+            .map { it.type }.distinct().sortedBy { it.ordinal }
 
     fun group(item: HomeworkItem, today: LocalDate): HomeworkGroup {
         val due = item.dueDate

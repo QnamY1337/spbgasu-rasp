@@ -1,6 +1,7 @@
 package com.example.gasuschedule.domain.usecase
 
 import com.example.gasuschedule.domain.model.HomeworkItem
+import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import java.time.Clock
@@ -21,6 +22,7 @@ class ManageHomeworkUseCase @Inject constructor(
         subject: String,
         description: String,
         dueDate: LocalDate?,
+        lessonType: LessonType? = null,
     ) {
         val existing = id?.let { repository.get(it) }
         repository.upsert(
@@ -32,6 +34,7 @@ class ManageHomeworkUseCase @Inject constructor(
                 dueDate = dueDate,
                 isDone = existing?.isDone ?: false,
                 createdAt = existing?.createdAt ?: clock.instant(),
+                lessonType = lessonType?.takeIf { it != LessonType.OTHER },
             ),
         )
         reminders.requestReplan()

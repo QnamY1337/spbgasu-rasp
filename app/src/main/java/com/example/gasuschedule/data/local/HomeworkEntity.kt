@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.gasuschedule.domain.model.HomeworkItem
+import com.example.gasuschedule.domain.model.LessonType
 import java.time.Instant
 import java.time.LocalDate
 
@@ -20,8 +21,10 @@ data class HomeworkEntity(
     val dueDate: LocalDate?,
     val isDone: Boolean,
     val createdAt: Instant,
+    /** Добавлено в версии БД 2 (автомиграция: nullable-колонка). */
+    val lessonType: LessonType? = null,
 )
 
-fun HomeworkEntity.toDomain() = HomeworkItem(id, lessonId, subject, description, dueDate, isDone, createdAt)
+fun HomeworkEntity.toDomain() = HomeworkItem(id, lessonId, subject, description, dueDate, isDone, createdAt, lessonType)
 
-fun HomeworkItem.toEntity() = HomeworkEntity(id, lessonId, subject, description, dueDate, isDone, createdAt)
+fun HomeworkItem.toEntity() = HomeworkEntity(id, lessonId, subject, description, dueDate, isDone, createdAt, lessonType)

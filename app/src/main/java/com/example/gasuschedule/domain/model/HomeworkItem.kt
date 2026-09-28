@@ -12,4 +12,9 @@ data class HomeworkItem(
     val dueDate: LocalDate?,
     val isDone: Boolean,
     val createdAt: Instant,
+    /**
+     * К какому типу занятия задание: задали на практике — сдавать на практике.
+     * null — тип не важен (любая следующая пара по предмету).
+     */
+    val lessonType: LessonType? = null,
 )
