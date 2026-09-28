@@ -17,4 +17,4 @@ Android-приложение «Расписание СПбГАСУ» (Kotlin, Co
 - `java` нет в PATH: `JAVA_HOME="Z:\android studio\jbr"`.
 - Android SDK: `%LOCALAPPDATA%\Android\Sdk` (compileSdk 37); `local.properties` не в git.
 - Путь проекта содержит пробел — Robolectric берёт образ Android из `~/.gradle/robolectric-jars`.
-- Ключ релиза: `%USERPROFILE%.androidspbgasu-release.jks`, пароли — в `keystore.properties` (не в git).
+- Ключ релиза: `%USERPROFILE%/.android/spbgasu-release.jks`, пароли — в `keystore.properties` (не в git).
