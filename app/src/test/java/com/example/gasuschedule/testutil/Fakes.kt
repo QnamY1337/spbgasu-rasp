@@ -1,6 +1,7 @@
 package com.example.gasuschedule.testutil
 
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.LessonReminder
 import com.example.gasuschedule.domain.model.ScheduleChange
@@ -8,6 +9,7 @@ import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.SemesterSchedule
 import com.example.gasuschedule.domain.model.StudyGroup
 import com.example.gasuschedule.domain.model.TravelMode
+import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
@@ -86,6 +88,9 @@ class FakePreferences(group: String? = GROUP) : UserPreferencesRepository {
     override val leaveBufferMinutes = MutableStateFlow(UserPreferencesRepository.DEFAULT_LEAVE_BUFFER_MINUTES)
     override suspend fun setLeaveBufferMinutes(minutes: Int) { leaveBufferMinutes.value = minutes }
 
+    override val homeworkReminderHours = MutableStateFlow(UserPreferencesRepository.DEFAULT_HOMEWORK_REMINDER_HOURS)
+    override suspend fun setHomeworkReminderHours(hours: Int) { homeworkReminderHours.value = hours }
+
     override val leaveRemindersEnabled = MutableStateFlow(true)
     override suspend fun setLeaveRemindersEnabled(enabled: Boolean) { leaveRemindersEnabled.value = enabled }
 }
@@ -107,4 +112,21 @@ class FakeReplanTrigger : ReminderReplanTrigger {
 class FakeWidgetUpdater : WidgetUpdater {
     var requests = 0
     override fun requestUpdate() { requests++ }
+}
+
+class FakeHomeworkRepository : HomeworkRepository {
+    val items = MutableStateFlow<List<HomeworkItem>>(emptyList())
+
+    override fun observeAll(): Flow<List<HomeworkItem>> = items
+    override fun observeForLesson(lessonId: String) = items.map { l -> l.filter { it.lessonId == lessonId } }
+    override suspend fun get(id: String) = items.value.find { it.id == id }
+    override suspend fun upsert(item: HomeworkItem) {
+        items.value = items.value.filterNot { it.id == item.id } + item
+    }
+    override suspend fun setDone(id: String, done: Boolean) {
+        items.value = items.value.map { if (it.id == id) it.copy(isDone = done) else it }
+    }
+    override suspend fun delete(id: String) {
+        items.value = items.value.filterNot { it.id == id }
+    }
 }

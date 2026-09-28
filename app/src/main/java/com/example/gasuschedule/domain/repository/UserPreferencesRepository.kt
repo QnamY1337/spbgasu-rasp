@@ -35,6 +35,10 @@ interface UserPreferencesRepository {
     val leaveBufferMinutes: Flow<Int>
     suspend fun setLeaveBufferMinutes(minutes: Int)
 
+    /** За сколько часов до дедлайна задания напоминать; 0 — не напоминать. */
+    val homeworkReminderHours: Flow<Int>
+    suspend fun setHomeworkReminderHours(hours: Int)
+
     /** Уведомлять "Пора выходить" перед первой парой дня. */
     val leaveRemindersEnabled: Flow<Boolean>
     suspend fun setLeaveRemindersEnabled(enabled: Boolean)
@@ -44,5 +48,7 @@ interface UserPreferencesRepository {
         val REMINDER_MINUTES_OPTIONS = listOf(5, 10, 15, 30, 60)
         const val DEFAULT_LEAVE_BUFFER_MINUTES = 10
         val LEAVE_BUFFER_OPTIONS = listOf(0, 5, 10, 15, 20)
+        const val DEFAULT_HOMEWORK_REMINDER_HOURS = 12
+        val HOMEWORK_REMINDER_OPTIONS = listOf(0, 2, 6, 12, 24)
     }
 }

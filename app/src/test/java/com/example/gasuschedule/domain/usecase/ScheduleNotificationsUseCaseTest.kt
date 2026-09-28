@@ -1,6 +1,7 @@
 package com.example.gasuschedule.domain.usecase
 
 import com.example.gasuschedule.domain.model.LessonType
+import com.example.gasuschedule.testutil.FakeHomeworkRepository
 import com.example.gasuschedule.testutil.FakePreferences
 import com.example.gasuschedule.testutil.FakeReminderScheduler
 import com.example.gasuschedule.testutil.FakeScheduleRepository
@@ -22,9 +23,10 @@ class ScheduleNotificationsUseCaseTest {
     private val repo = FakeScheduleRepository()
     private val prefs = FakePreferences()
     private val scheduler = FakeReminderScheduler()
+    private val homework = FakeHomeworkRepository()
 
     private fun useCase(hour: Int, day: Int = 28) =
-        ScheduleNotificationsUseCase(repo, prefs, scheduler, clockAt(d(day), hour))
+        ScheduleNotificationsUseCase(repo, prefs, scheduler, clockAt(d(day), hour), homework)
 
     /** Понедельник 28.09 (1, 2, 3 пара), вторник 29.09 (2 пара), среда 30.09 (1 пара). */
     private suspend fun seed() = repo.replaceSnapshot(
@@ -63,7 +65,7 @@ class ScheduleNotificationsUseCaseTest {
         seed()
         // 10:35 — до 2 пары 10 минут, момент "за 15 минут" уже прошёл.
         val clock = Clock.fixed(at(28, 10, 35), MOSCOW)
-        val reminders = ScheduleNotificationsUseCase(repo, prefs, scheduler, clock)()
+        val reminders = ScheduleNotificationsUseCase(repo, prefs, scheduler, clock, homework)()
         assertEquals(listOf(at(28, 12, 15), at(29, 10, 30)), reminders.map { it.triggerAt })
     }
 
@@ -85,7 +87,7 @@ class ScheduleNotificationsUseCaseTest {
         assertTrue(scheduler.scheduled.isEmpty())
 
         val noGroup = FakePreferences(group = null)
-        assertTrue(ScheduleNotificationsUseCase(repo, noGroup, scheduler, clockAt(d(28), 7))().isEmpty())
+        assertTrue(ScheduleNotificationsUseCase(repo, noGroup, scheduler, clockAt(d(28), 7), homework)().isEmpty())
         assertEquals(2, scheduler.calls)
     }
 
@@ -99,7 +101,7 @@ class ScheduleNotificationsUseCaseTest {
             ),
             emptyList(),
         )
-        val reminders = ScheduleNotificationsUseCase(repo, prefs, scheduler, clockAt(d(1, 10), 20))()
+        val reminders = ScheduleNotificationsUseCase(repo, prefs, scheduler, clockAt(d(1, 10), 20), homework)()
         assertEquals(1, reminders.size)
         assertEquals("Через 15 мин · Начертательная геометрия (пр.)", reminders.single().title)
         assertEquals("09:00–10:30 · 421(3)/Г, 444/Г · Гурьева Ю.А., Ржавцев А.А.", reminders.single().text)

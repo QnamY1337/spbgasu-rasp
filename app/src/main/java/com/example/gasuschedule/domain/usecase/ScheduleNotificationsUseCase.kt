@@ -1,10 +1,13 @@
 package com.example.gasuschedule.domain.usecase
 
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.HomeworkItem
+import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.model.LessonReminder
 import com.example.gasuschedule.domain.model.subjectWithType
+import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
@@ -27,6 +30,7 @@ class ScheduleNotificationsUseCase @Inject constructor(
     private val preferences: UserPreferencesRepository,
     private val scheduler: ReminderScheduler,
     private val clock: Clock,
+    private val homework: HomeworkRepository,
 ) {
     suspend operator fun invoke(): List<LessonReminder> {
         val group = preferences.groupName.first()
@@ -34,7 +38,15 @@ class ScheduleNotificationsUseCase @Inject constructor(
             emptyList()
         } else {
             val today = LocalDate.now(clock)
-            val lessons = repository.observeLessons(group, today, today.plusDays(1)).first()
+            // На послезавтра — только для дедлайнов заданий (напоминание бывает за сутки).
+            val window = repository.observeLessons(group, today, today.plusDays(2)).first()
+            val lessons = window.filter { !it.date.isAfter(today.plusDays(1)) }
+            val homeworkReminders = buildHomeworkReminders(
+                homework.observeAll().first(),
+                window,
+                preferences.homeworkReminderHours.first(),
+                clock,
+            )
             val lessonReminders =
                 if (preferences.remindersEnabled.first()) buildReminders(lessons, preferences.reminderMinutes.first(), clock)
                 else emptyList()
@@ -48,13 +60,37 @@ class ScheduleNotificationsUseCase @Inject constructor(
                         clock,
                     )
                 } else emptyList()
-            (lessonReminders + leaveReminders).sortedBy { it.triggerAt }
+            (lessonReminders + leaveReminders + homeworkReminders).sortedBy { it.triggerAt }
         }
         scheduler.replaceAll(reminders)
         return reminders
     }
 
     companion object {
+        /** Напоминание о невыполненном задании за [hoursBefore] часов до дедлайна ([HomeworkPlanning.deadline]). */
+        fun buildHomeworkReminders(
+            items: List<HomeworkItem>,
+            lessons: List<Lesson>,
+            hoursBefore: Int,
+            clock: Clock,
+        ): List<LessonReminder> {
+            if (hoursBefore <= 0) return emptyList()
+            val now = Instant.now(clock)
+            return items.filter { !it.isDone }.mapNotNull { item ->
+                val deadline = HomeworkPlanning.deadline(item, lessons) ?: return@mapNotNull null
+                val trigger = deadline.minusHours(hoursBefore.toLong()).atZone(clock.zone).toInstant()
+                if (!trigger.isAfter(now)) return@mapNotNull null
+                val day = if (deadline.toLocalDate() == trigger.atZone(clock.zone).toLocalDate()) "сегодня" else "завтра"
+                LessonReminder(
+                    key = "hw|${item.id}",
+                    lessonId = item.lessonId.orEmpty(),
+                    triggerAt = trigger,
+                    title = "Сдать $day к ${deadline.toLocalTime()} · ${item.subject}",
+                    text = item.description,
+                )
+            }
+        }
+
         /** "Пора выходить" — к первой паре каждого дня, если указан дом и известен корпус. */
         fun buildLeaveReminders(
             lessons: List<Lesson>,

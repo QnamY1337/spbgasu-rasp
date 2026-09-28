@@ -99,7 +99,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[LEAVE_REMINDERS] = enabled }
     }
 
+    override val homeworkReminderHours: Flow<Int> =
+        dataStore.data.map { it[HOMEWORK_REMINDER_HOURS] ?: UserPreferencesRepository.DEFAULT_HOMEWORK_REMINDER_HOURS }
+            .distinctUntilChanged()
+
+    override suspend fun setHomeworkReminderHours(hours: Int) {
+        dataStore.edit { it[HOMEWORK_REMINDER_HOURS] = hours }
+    }
+
     private companion object {
+        val HOMEWORK_REMINDER_HOURS = intPreferencesKey("homework_reminder_hours")
         val HOME_LAT = doublePreferencesKey("home_lat")
         val HOME_LON = doublePreferencesKey("home_lon")
         val HOME_LABEL = stringPreferencesKey("home_label")
