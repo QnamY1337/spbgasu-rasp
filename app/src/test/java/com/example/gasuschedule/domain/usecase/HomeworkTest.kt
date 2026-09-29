@@ -41,13 +41,6 @@ class HomeworkTest {
         assertNull(HomeworkPlanning.deadline(hw("c", null), lessons))
     }
 
-    @Test
-    fun `следующая пара по предмету`() {
-        assertEquals(d(30), HomeworkPlanning.nextLessonDate("Физика", d(28), lessons))
-        assertEquals(d(7, 10), HomeworkPlanning.nextLessonDate("Физика", d(30), lessons))
-        assertNull(HomeworkPlanning.nextLessonDate("Химия", d(28), lessons))
-    }
-
     // Высшая математика: ПН 28.09 лекция, ВТ 29.09 практика, СР 30.09 лекция, ПТ 02.10 практика, СР 07.10 лаба.
     private val math = listOf(
         lesson(d(28), 1, "Высшая математика", LessonType.LECTURE),
@@ -58,19 +51,14 @@ class HomeworkTest {
     )
 
     @Test
-    fun `к следующей паре того же типа`() {
+    fun `к следующей паре того же вида`() {
         // С практики во вторник — к практике в пятницу, а не к лекции в среду.
-        assertEquals(d(2, 10), HomeworkPlanning.nextLessonDate("Высшая математика", d(29), math, LessonType.PRACTICE))
-        assertEquals(d(30), HomeworkPlanning.nextLessonDate("Высшая математика", d(28), math, LessonType.LECTURE))
-        assertEquals(d(7, 10), HomeworkPlanning.nextLessonDate("Высшая математика", d(29), math, LessonType.LAB))
-        // Без типа — любая следующая пара.
-        assertEquals(d(30), HomeworkPlanning.nextLessonDate("Высшая математика", d(29), math))
-        // Практик впереди нет — берём любую следующую пару по предмету.
-        assertEquals(d(7, 10), HomeworkPlanning.nextLessonDate("Высшая математика", d(2, 10), math, LessonType.PRACTICE))
-        assertEquals(
-            listOf(LessonType.LECTURE, LessonType.PRACTICE, LessonType.LAB),
-            HomeworkPlanning.typesOf("высшая математика", math),
-        )
+        assertEquals(d(2, 10), HomeworkPlanning.nextSameType(math[1], math))
+        assertEquals(d(30), HomeworkPlanning.nextSameType(math[0], math))
+        // Практик впереди больше нет — варианта "к следующей" нет, а не любая пара.
+        assertNull(HomeworkPlanning.nextSameType(math[3], math))
+        assertNull(HomeworkPlanning.nextSameType(math[4], math))
+        assertEquals("регистр предмета не важен", d(30), HomeworkPlanning.nextSameType(math[0].copy(subject = "высшая математика "), math))
     }
 
     @Test

@@ -61,11 +61,11 @@ import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.common.YandexMaps
 import com.example.gasuschedule.presentation.homework.dueText
-import com.example.gasuschedule.presentation.lessondetail.LessonDetailSheet
+import com.example.gasuschedule.presentation.homework.LessonHomeworkMenu
 import com.example.gasuschedule.presentation.schedule.CenteredDivider
 import com.example.gasuschedule.presentation.schedule.LessonCard
 import com.example.gasuschedule.presentation.schedule.LessonTiming
-import com.example.gasuschedule.presentation.schedule.LocalLessonClick
+import com.example.gasuschedule.presentation.schedule.LocalLessonMenu
 import com.example.gasuschedule.presentation.schedule.dayTitle
 import com.example.gasuschedule.presentation.schedule.lessonTimings
 import com.example.gasuschedule.presentation.schedule.lessonsCount
@@ -87,14 +87,12 @@ fun HomeRoute(
 ) {
     StatusBarIcons(onBrickHeader = true)
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val detail by viewModel.detail.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
-    CompositionLocalProvider(LocalLessonClick provides viewModel::openLesson) {
+    CompositionLocalProvider(LocalLessonMenu provides { lesson, expanded, dismiss -> LessonHomeworkMenu(lesson, expanded, dismiss) }) {
         HomeScreen(state, snackbar, onRefresh = { viewModel.refresh() }, onOpenSettings = onOpenSettings, onOpenHomework = onOpenHomework)
     }
-    detail?.let { LessonDetailSheet(it, onDismiss = { viewModel.openLesson(null) }) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

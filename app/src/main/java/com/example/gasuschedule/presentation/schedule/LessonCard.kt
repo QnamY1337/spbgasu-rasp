@@ -18,6 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,8 +42,11 @@ import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
 import java.time.LocalDateTime
 
-/** Тап по карточке пары — открыть подробности; задаётся экраном расписания. */
-val LocalLessonClick = staticCompositionLocalOf<((Lesson) -> Unit)?> { null }
+/**
+ * Меню под карточкой пары по тапу (добавить ДЗ); задаётся экраном. Параметры: пара, раскрыто ли,
+ * закрыть. null — карточка не нажимается.
+ */
+val LocalLessonMenu = staticCompositionLocalOf<(@Composable (Lesson, Boolean, () -> Unit) -> Unit)?> { null }
 
 /** Карточка пары из макета: слева номер и время моноширинным, справа предмет, аудитория, преподаватель. */
 @Composable
@@ -73,10 +80,11 @@ fun LessonCard(
     val accentBar = scheme.primary
 
     Box(modifier.padding(top = if (highlighted) 10.dp else 0.dp)) {
-        val onClick = LocalLessonClick.current
+        val menu = LocalLessonMenu.current
+        var menuOpen by remember { mutableStateOf(false) }
         Surface(
-            onClick = { onClick?.invoke(lesson) },
-            enabled = onClick != null,
+            onClick = { menuOpen = true },
+            enabled = menu != null,
             shape = MaterialTheme.shapes.medium,
             color = container,
             border = border,
@@ -147,6 +155,8 @@ fun LessonCard(
                 modifier = Modifier.offset(x = 16.dp, y = (-10).dp),
             )
         }
+        // Меню раскрывается под карточкой (якорь — этот Box).
+        menu?.invoke(lesson, menuOpen) { menuOpen = false }
     }
 }
 

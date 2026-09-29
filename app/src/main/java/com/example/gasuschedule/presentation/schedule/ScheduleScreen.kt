@@ -65,7 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.presentation.changes.ChangesRoute
 import com.example.gasuschedule.presentation.common.StatusBarIcons
-import com.example.gasuschedule.presentation.lessondetail.LessonDetailSheet
+import com.example.gasuschedule.presentation.homework.LessonHomeworkMenu
 import com.example.gasuschedule.presentation.session.SessionTab
 import com.example.gasuschedule.presentation.settings.ReminderPermissions
 import com.example.gasuschedule.presentation.theme.GasuTheme
@@ -95,7 +95,6 @@ fun ScheduleRoute(
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
     AskNotificationsOnce()
-    val detail by viewModel.detail.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
     var handledRequest by rememberSaveable { mutableIntStateOf(0) }
@@ -106,7 +105,7 @@ fun ScheduleRoute(
         }
     }
 
-    CompositionLocalProvider(LocalLessonClick provides viewModel::openLesson) {
+    CompositionLocalProvider(LocalLessonMenu provides { lesson, expanded, dismiss -> LessonHomeworkMenu(lesson, expanded, dismiss) }) {
         ScheduleScreen(
             state = state,
             tab = tab,
@@ -120,7 +119,6 @@ fun ScheduleRoute(
             onChangeGroup = onChangeGroup,
         )
     }
-    detail?.let { LessonDetailSheet(it, onDismiss = { viewModel.openLesson(null) }) }
 }
 
 /**

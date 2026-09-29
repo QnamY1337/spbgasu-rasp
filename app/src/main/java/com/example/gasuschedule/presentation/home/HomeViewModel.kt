@@ -19,7 +19,6 @@ import com.example.gasuschedule.domain.usecase.LeaveEstimate
 import com.example.gasuschedule.domain.usecase.SyncResult
 import com.example.gasuschedule.domain.usecase.SyncScheduleUseCase
 import com.example.gasuschedule.presentation.common.errorMessage
-import com.example.gasuschedule.presentation.lessondetail.LessonDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -33,7 +32,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -136,19 +134,6 @@ class HomeViewModel @Inject constructor(
                 .sortedWith(compareBy(nullsLast()) { it.dueDate }),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
-
-    private val openedLesson = MutableStateFlow<Lesson?>(null)
-
-    val detail: StateFlow<LessonDetail?> = openedLesson.flatMapLatest { lesson ->
-        if (lesson == null) return@flatMapLatest flowOf(null)
-        combine(road, data) { (home, mode, buffer), (_, lessons, _) ->
-            LessonDetail.of(lesson, lessons.filter { it.date == lesson.date }, home, mode, buffer)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun openLesson(lesson: Lesson?) {
-        openedLesson.value = lesson
-    }
 
     init {
         // Погода: при открытии и при смене адреса дома (прогноз берётся для дома).

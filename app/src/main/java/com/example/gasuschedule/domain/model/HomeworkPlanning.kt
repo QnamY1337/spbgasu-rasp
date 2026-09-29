@@ -44,21 +44,10 @@ object HomeworkPlanning {
         items.mapNotNull { item -> dueLesson(item, lessons)?.let { it.id to item } }
             .groupBy({ it.first }, { it.second })
 
-    /**
-     * Дата следующей пары по предмету после [after] — срок "к следующей паре".
-     * С [type] — следующая пара того же типа (практика к практике, лаба к лабе);
-     * если такой впереди нет — любая следующая пара по предмету.
-     */
-    fun nextLessonDate(subject: String, after: LocalDate, lessons: List<Lesson>, type: LessonType? = null): LocalDate? {
-        val next = lessons.filter { sameSubject(it.subject, subject) && it.date.isAfter(after) }
-        val sameType = if (type == null || type == LessonType.OTHER) emptyList() else next.filter { it.type == type }
-        return sameType.ifEmpty { next }.minOfOrNull { it.date }
-    }
-
-    /** Типы занятий предмета в расписании — для выбора "к какой паре" в редакторе. */
-    fun typesOf(subject: String, lessons: List<Lesson>): List<LessonType> =
-        lessons.filter { sameSubject(it.subject, subject) && it.type != LessonType.OTHER }
-            .map { it.type }.distinct().sortedBy { it.ordinal }
+    /** Дата следующей пары того же предмета и вида (лекция, практика, лаба) после [lesson]; null — таких нет. */
+    fun nextSameType(lesson: Lesson, lessons: List<Lesson>): LocalDate? =
+        lessons.filter { it.type == lesson.type && sameSubject(it.subject, lesson.subject) && it.date.isAfter(lesson.date) }
+            .minOfOrNull { it.date }
 
     fun group(item: HomeworkItem, today: LocalDate): HomeworkGroup {
         val due = item.dueDate

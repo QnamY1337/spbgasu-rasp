@@ -1,6 +1,7 @@
 package com.example.gasuschedule.presentation.homework
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,13 +17,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,13 +40,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.HomeworkGroup
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.Lesson
-import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.domain.model.shortLabel
 import com.example.gasuschedule.presentation.common.StatusBarIcons
 import com.example.gasuschedule.presentation.schedule.pluralRu
@@ -61,18 +62,10 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
     var editing by remember { mutableStateOf<HomeworkDraft?>(null) }
     var showDone by rememberSaveable { mutableStateOf(false) }
 
+    // Задания добавляются только с карточки пары (меню по тапу) — здесь список и правка.
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { editing = HomeworkDraft() },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Задание") },
-            )
-        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize().statusBarsPadding(),
@@ -105,21 +98,18 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
                     item(key = "title-$group") { GroupTitle(group.title, items.size) }
                 }
                 items(items, key = { it.id }) { item ->
-                    HomeworkRow(item, state.today, onToggle = { viewModel.toggle(item) }, onClick = {
-                        editing = HomeworkDraft(item.id, item.lessonId, item.subject, item.description, item.dueDate, item.lessonType)
-                    })
+                    HomeworkRow(item, state.today, onToggle = { viewModel.toggle(item) }, onClick = { editing = draftOf(item) })
                 }
             }
         }
     }
 
     editing?.let { draft ->
+        val lesson = draft.lessonId?.let { id -> state.lessons.firstOrNull { it.id == id } }
         HomeworkEditorSheet(
             initial = draft,
-            subjects = state.subjects,
-            today = state.today,
-            typesOf = state::typesOf,
-            nextLessonDate = { subject, type -> state.nextLessonDate(subject, type = type) },
+            lesson = lesson,
+            nextSameType = lesson?.let(state::nextSameType),
             onSave = { viewModel.save(it); editing = null },
             onDelete = draft.id?.let { id -> { viewModel.delete(id); editing = null } },
             onDismiss = { editing = null },
@@ -203,7 +193,7 @@ private fun EmptyHomework() {
         Text("Заданий нет", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Добавьте задание кнопкой «Задание» или из карточки пары в расписании — срок подставится к следующей паре.",
+            "Нажмите на пару в расписании или на главной — задание можно добавить на эту пару или к следующей такой же.",
             style = MaterialTheme.typography.bodyMedium,
             color = GasuTheme.colors.textFaint,
             textAlign = TextAlign.Center,
@@ -211,54 +201,64 @@ private fun EmptyHomework() {
     }
 }
 
-/** Блок "Домашнее задание" в карточке пары: что задали на ней и что сдавать к ней. */
+/**
+ * Меню под карточкой пары: задания этой пары (правка), "ДЗ на эту пару" и "ДЗ к след. <вид>" —
+ * следующая пара того же предмета и вида (лекция, практика, лаба). Других способов добавить нет.
+ */
 @Composable
-fun LessonHomeworkBlock(lesson: Lesson, viewModel: HomeworkViewModel = hiltViewModel()) {
+fun LessonHomeworkMenu(
+    lesson: Lesson,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    viewModel: HomeworkViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<HomeworkDraft?>(null) }
-    val items = state.forLesson(lesson)
+    val next = state.nextSameType(lesson)
+    val scheme = MaterialTheme.colorScheme
 
-    Column(Modifier.fillMaxWidth()) {
-        Text("ДОМАШНЕЕ ЗАДАНИЕ", style = MonoStyles.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(8.dp))
-        items.forEach { item ->
-            HomeworkRow(
-                item,
-                state.today,
-                onToggle = { viewModel.toggle(item) },
-                onClick = { editing = HomeworkDraft(item.id, item.lessonId, item.subject, item.description, item.dueDate, item.lessonType) },
-                modifier = Modifier.padding(bottom = 8.dp),
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.medium,
+        containerColor = scheme.surface,
+        offset = DpOffset(12.dp, 4.dp),
+    ) {
+        state.forLesson(lesson).forEach { item ->
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "ДЗ: ${item.description.lineSequence().first()}",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textDecoration = if (item.isDone) TextDecoration.LineThrough else null,
+                        color = if (item.isDone) GasuTheme.colors.textFaint else scheme.onSurface,
+                    )
+                },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = scheme.onSurfaceVariant) },
+                onClick = { onDismiss(); editing = draftOf(item) },
+                modifier = Modifier.widthIn(max = 320.dp),
             )
         }
-        OutlinedButton(
-            onClick = {
-                // Задание — на эту самую пару; "к следующей" можно выбрать в редакторе.
-                editing = HomeworkDraft(
-                    lessonId = lesson.id,
-                    subject = lesson.subject,
-                    dueDate = lesson.date,
-                    lessonType = lesson.type.takeIf { it != LessonType.OTHER },
-                )
-            },
-            shape = MaterialTheme.shapes.medium,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(Modifier.padding(start = 6.dp))
-            Text(if (items.isEmpty()) "Добавить задание" else "Ещё задание", fontWeight = FontWeight.SemiBold)
+        DropdownMenuItem(
+            text = { Text("ДЗ на эту пару · ${dayShort(lesson.date)}", color = scheme.primary, fontWeight = FontWeight.SemiBold) },
+            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = scheme.primary) },
+            onClick = { onDismiss(); editing = newDraft(lesson, lesson.date) },
+        )
+        next?.let { date ->
+            DropdownMenuItem(
+                text = { Text("ДЗ к след. ${nextOfType(lesson.type)} · ${dayShort(date)}", color = scheme.primary) },
+                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = scheme.primary) },
+                onClick = { onDismiss(); editing = newDraft(lesson, date) },
+            )
         }
     }
 
     editing?.let { draft ->
         HomeworkEditorSheet(
             initial = draft,
-            subjects = state.subjects,
-            today = state.today,
-            typesOf = state::typesOf,
-            nextLessonDate = { subject, type -> state.nextLessonDate(subject, after = lesson.date, type = type) },
-            thisLesson = lesson.date,
+            lesson = lesson,
+            nextSameType = next,
             onSave = { viewModel.save(it); editing = null },
             onDelete = draft.id?.let { id -> { viewModel.delete(id); editing = null } },
             onDismiss = { editing = null },

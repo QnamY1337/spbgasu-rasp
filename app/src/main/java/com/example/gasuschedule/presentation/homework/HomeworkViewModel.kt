@@ -6,7 +6,6 @@ import com.example.gasuschedule.domain.model.HomeworkGroup
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
-import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
@@ -28,17 +27,13 @@ data class HomeworkUiState(
     val loaded: Boolean = false,
     val today: LocalDate = LocalDate.MIN,
     val items: List<HomeworkItem> = emptyList(),
-    /** Пары группы от сегодня и на семестр вперёд: подсказки предметов и срок "к следующей паре". */
+    /** Пары группы от недели назад и на семестр вперёд: пара задания и срок "к следующей того же вида". */
     val lessons: List<Lesson> = emptyList(),
 ) {
     val groups: Map<HomeworkGroup, List<HomeworkItem>> get() = HomeworkPlanning.grouped(items, today)
     val urgentCount: Int get() = HomeworkPlanning.urgentCount(items, today)
-    val subjects: List<String> get() = lessons.map { it.subject }.distinct().sorted()
 
-    fun nextLessonDate(subject: String, after: LocalDate = today, type: LessonType? = null): LocalDate? =
-        HomeworkPlanning.nextLessonDate(subject, after, lessons, type)
-
-    fun typesOf(subject: String): List<LessonType> = HomeworkPlanning.typesOf(subject, lessons)
+    fun nextSameType(lesson: Lesson): LocalDate? = HomeworkPlanning.nextSameType(lesson, lessons)
 
     /**
      * Задания пары: добавленные на ней и те, что сдавать именно на ней ([HomeworkPlanning.dueLesson]).
