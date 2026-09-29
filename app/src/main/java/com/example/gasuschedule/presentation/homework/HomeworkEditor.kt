@@ -183,7 +183,7 @@ fun HomeworkEditorSheet(
                     next?.let { add("К след. ${nextOfType(type?.takeIf { t -> t in types })} · ${dayShort(it)}" to it) }
                     add("Завтра" to today.plusDays(1))
                     add("Через неделю" to today.plusWeeks(1))
-                }
+                }.distinctBy { it.second } // "Завтра" совпало с "На эту пару" — выделенным будет только первый
                 options.forEach { (label, date) -> DueChip(label, selected = due == date) { due = date } }
                 val custom = due?.takeIf { d -> options.none { it.second == d } }
                 DueChip(custom?.let(::dayShort) ?: "Выбрать дату…", selected = custom != null) { pickDate = true }
