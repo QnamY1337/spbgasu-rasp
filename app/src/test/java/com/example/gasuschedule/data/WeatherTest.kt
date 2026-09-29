@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.core.app.ApplicationProvider
 import com.example.gasuschedule.data.remote.Fixtures
+import com.example.gasuschedule.data.remote.MetNorwayClient
 import com.example.gasuschedule.data.remote.OpenMeteoClient
 import com.example.gasuschedule.data.repository.WeatherRepositoryImpl
 import com.example.gasuschedule.domain.model.GeoPoint
@@ -39,6 +40,8 @@ import java.time.ZoneId
 class WeatherTest {
 
     private lateinit var server: MockWebServer
+    /** Запасной источник — MET Norway. */
+    private lateinit var met: MockWebServer
     private val moscow = ZoneId.of("Europe/Moscow")
     /** 28.09.2026 10:05 МСК — тот же день, что в фикстуре Open-Meteo (и +4 часа — всё ещё он). */
     private var now = Instant.parse("2026-09-28T07:05:00Z")
@@ -48,15 +51,26 @@ class WeatherTest {
         override fun instant() = now
     }
 
-    @Before fun setUp() { server = MockWebServer(); server.start() }
-    @After fun tearDown() = server.close()
+    @Before fun setUp() {
+        server = MockWebServer().apply { start() }
+        met = MockWebServer().apply { start() }
+    }
+
+    @After fun tearDown() {
+        server.close()
+        met.close()
+    }
 
     private fun ok() = MockResponse.Builder().body(Fixtures.text("open_meteo.json")).build()
 
     private fun repo(prefs: FakePreferences, scope: TestScope): WeatherRepositoryImpl {
         val file = File(ApplicationProvider.getApplicationContext<Application>().filesDir, "w-${System.nanoTime()}.preferences_pb")
         val store = PreferenceDataStoreFactory.create(scope = scope.backgroundScope) { file }
-        return WeatherRepositoryImpl(OpenMeteoClient(OkHttpClient(), server.url("/").toString()), store, prefs, clock)
+        return WeatherRepositoryImpl(
+            OpenMeteoClient(OkHttpClient(), server.url("/").toString()),
+            MetNorwayClient(OkHttpClient(), clock, met.url("/").toString()),
+            store, prefs, clock,
+        )
     }
 
     @Test
@@ -69,6 +83,37 @@ class WeatherTest {
         assertEquals(10, f.tempMin) // 9.6 -> 10
         assertEquals(15, f.tempMax)
         assertEquals(0, f.precipitationChance)
+    }
+
+    @Test
+    fun `разбор ответа MET Norway - сейчас, мин и макс за сегодня по Москве`() {
+        val f = MetNorwayClient.parse(Fixtures.text("met_norway.json"), clock)
+        assertEquals("2026-09-28", f.date.toString())
+        assertEquals(8, f.tempC)
+        assertEquals(61, f.weatherCode) // lightrainshowers -> небольшой дождь
+        assertTrue(f.isDay)
+        assertEquals("21:00Z — уже 29.09 по Москве, не считаем", 5, f.tempMin)
+        assertEquals(10, f.tempMax)
+        assertNull(f.precipitationChance)
+        assertEquals(0, MetNorwayClient.wmoCode("clearsky_night"))
+        assertEquals(95, MetNorwayClient.wmoCode("heavyrainandthunder"))
+        assertEquals(66, MetNorwayClient.wmoCode("lightsleetshowers_day"))
+        assertEquals(82, MetNorwayClient.wmoCode("heavyrainshowers_night"))
+        assertEquals(73, MetNorwayClient.wmoCode("snow"))
+    }
+
+    @Test
+    fun `Open-Meteo недоступен - прогноз берём у MET Norway`() = runTest(UnconfinedTestDispatcher()) {
+        val repo = repo(FakePreferences().apply { home.value = HomeLocation(GeoPoint(59.87, 30.32), "дом") }, this)
+        server.enqueue(MockResponse.Builder().code(503).build())
+        met.enqueue(MockResponse.Builder().body(Fixtures.text("met_norway.json")).build())
+        assertTrue(repo.refreshIfStale())
+        val w = repo.weather.first()!!
+        assertEquals(8, w.tempC)
+        assertEquals("Небольшой дождь", w.condition)
+        val request = met.takeRequest()
+        assertEquals("59.8700", request.url.queryParameter("lat"))
+        assertTrue(request.headers["User-Agent"]!!.startsWith("GasuSchedule/"))
     }
 
     @Test
@@ -103,6 +148,7 @@ class WeatherTest {
         // Через 4 часа — устарел; сеть упала — false, но старый прогноз остаётся.
         now = now.plusSeconds(3 * 3600)
         server.enqueue(MockResponse.Builder().code(503).build())
+        met.enqueue(MockResponse.Builder().code(503).build())
         assertFalse(repo.refreshIfStale())
         assertEquals(11, repo.weather.first()!!.tempC)
     }

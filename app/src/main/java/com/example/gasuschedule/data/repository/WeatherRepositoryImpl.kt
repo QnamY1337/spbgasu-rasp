@@ -4,10 +4,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.example.gasuschedule.data.remote.MetNorwayClient
 import com.example.gasuschedule.data.remote.OpenMeteoClient
 import com.example.gasuschedule.domain.model.Buildings
 import com.example.gasuschedule.domain.model.DayWeather
 import com.example.gasuschedule.domain.model.GeoPoint
+import com.example.gasuschedule.domain.model.ScheduleNetworkException
 import com.example.gasuschedule.domain.model.TravelTime
 import com.example.gasuschedule.domain.model.WeatherCodes
 import com.example.gasuschedule.domain.model.WeatherPlace
@@ -33,6 +35,7 @@ import javax.inject.Singleton
 @Singleton
 class WeatherRepositoryImpl @Inject constructor(
     private val client: OpenMeteoClient,
+    private val fallback: MetNorwayClient,
     private val dataStore: DataStore<Preferences>,
     private val preferences: UserPreferencesRepository,
     private val clock: Clock,
@@ -52,7 +55,12 @@ class WeatherRepositoryImpl @Inject constructor(
         val cached = dataStore.data.first()[KEY]?.let(::decode)
         if (cached != null && isFresh(cached, point)) return true
         try {
-            val f = client.forecast(point)
+            // api.open-meteo.com у части провайдеров в России недоступен — тогда MET Norway.
+            val f = try {
+                client.forecast(point)
+            } catch (e: ScheduleNetworkException) {
+                fallback.forecast(point)
+            }
             val entry = CachedWeather(
                 date = f.date.toString(),
                 tempC = f.tempC,

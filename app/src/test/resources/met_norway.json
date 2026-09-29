@@ -1,0 +1,6 @@
+{"type":"Feature","geometry":{"type":"Point","coordinates":[30.32,59.87,14]},"properties":{"meta":{"updated_at":"2026-09-28T06:30:11Z","units":{"air_temperature":"celsius","precipitation_amount":"mm"}},"timeseries":[
+{"time":"2026-09-28T07:00:00Z","data":{"instant":{"details":{"air_temperature":8.4}},"next_1_hours":{"summary":{"symbol_code":"lightrainshowers_day"},"details":{"precipitation_amount":0.3}},"next_6_hours":{"summary":{"symbol_code":"cloudy"},"details":{"precipitation_amount":0.5}}}},
+{"time":"2026-09-28T08:00:00Z","data":{"instant":{"details":{"air_temperature":9.6}},"next_1_hours":{"summary":{"symbol_code":"cloudy"},"details":{"precipitation_amount":0.0}}}},
+{"time":"2026-09-28T20:00:00Z","data":{"instant":{"details":{"air_temperature":5.2}},"next_1_hours":{"summary":{"symbol_code":"clearsky_night"},"details":{"precipitation_amount":0.0}}}},
+{"time":"2026-09-28T21:00:00Z","data":{"instant":{"details":{"air_temperature":3.0}},"next_6_hours":{"summary":{"symbol_code":"clearsky_night"},"details":{"precipitation_amount":0.0}}}}
+]}}
