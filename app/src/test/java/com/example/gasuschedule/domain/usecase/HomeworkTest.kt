@@ -84,6 +84,34 @@ class HomeworkTest {
         assertEquals("без типа — первая пара дня", d(30).atTime(9, 0), HomeworkPlanning.deadline(hw("any", d(30)), day))
     }
 
+    // Три практики подряд по одному предмету — задание на конкретную из них.
+    private val triple = listOf(
+        lesson(d(29), 2, "Архитектурное проектирование", LessonType.PRACTICE), // 10:45
+        lesson(d(29), 3, "Архитектурное проектирование", LessonType.PRACTICE), // 12:30
+        lesson(d(29), 4, "Архитектурное проектирование", LessonType.PRACTICE), // 15:00
+    )
+
+    @Test
+    fun `задание на конкретную пару - сдаётся на ней, а не на первой паре дня`() {
+        val third = triple[1]
+        val item = HomeworkItem("t", third.id, third.subject, "Эскиз", d(29), false, created, LessonType.PRACTICE)
+        assertEquals(third, HomeworkPlanning.dueLesson(item, triple))
+        assertEquals(d(29).atTime(12, 30), HomeworkPlanning.deadline(item, triple))
+        assertEquals(mapOf(third.id to listOf(item)), HomeworkPlanning.byLesson(listOf(item), triple))
+    }
+
+    @Test
+    fun `задание добавили на паре, а срок - другой день - сдаётся на первой паре того дня`() {
+        val item = HomeworkItem("n", triple[2].id, triple[2].subject, "Эскиз", d(6, 10), false, created, LessonType.PRACTICE)
+        val next = listOf(
+            lesson(d(6, 10), 1, "Архитектурное проектирование", LessonType.LECTURE),
+            lesson(d(6, 10), 3, "Архитектурное проектирование", LessonType.PRACTICE),
+        )
+        assertEquals(next[1], HomeworkPlanning.dueLesson(item, triple + next))
+        assertNull("без срока — ни к какой паре", HomeworkPlanning.dueLesson(item.copy(dueDate = null), triple + next))
+        assertTrue(HomeworkPlanning.byLesson(listOf(item.copy(isDone = true, dueDate = d(1, 10))), triple + next).isEmpty())
+    }
+
     @Test
     fun `группы - горят, эта неделя, позже, без срока, выполненные`() {
         val today = d(28) // понедельник; воскресенье — 04.10

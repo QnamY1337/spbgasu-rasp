@@ -343,7 +343,7 @@ private fun DayPage(date: LocalDate, lessons: List<Lesson>, state: ScheduleUiSta
             item { NoLessons() }
         } else {
             items(lessons, key = { it.id }) { lesson ->
-                LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now)
+                LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, homework = state.homework[lesson.id].orEmpty())
             }
             item { CenteredDivider("Пар больше нет", Modifier.padding(top = 12.dp)) }
         }
@@ -432,7 +432,7 @@ private fun WeekDay(date: LocalDate, lessons: List<Lesson>, isToday: Boolean, st
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            lessons.forEach { LessonCard(it, timings[it.id] ?: LessonTiming.UPCOMING, state.now) }
+            lessons.forEach { LessonCard(it, timings[it.id] ?: LessonTiming.UPCOMING, state.now, homework = state.homework[it.id].orEmpty()) }
         }
     }
 }

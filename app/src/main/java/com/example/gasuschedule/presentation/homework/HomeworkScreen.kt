@@ -232,10 +232,11 @@ fun LessonHomeworkBlock(lesson: Lesson, viewModel: HomeworkViewModel = hiltViewM
         }
         OutlinedButton(
             onClick = {
+                // Задание — на эту самую пару; "к следующей" можно выбрать в редакторе.
                 editing = HomeworkDraft(
                     lessonId = lesson.id,
                     subject = lesson.subject,
-                    dueDate = state.nextLessonDate(lesson.subject, after = lesson.date, type = lesson.type),
+                    dueDate = lesson.date,
                     lessonType = lesson.type.takeIf { it != LessonType.OTHER },
                 )
             },
@@ -257,6 +258,7 @@ fun LessonHomeworkBlock(lesson: Lesson, viewModel: HomeworkViewModel = hiltViewM
             today = state.today,
             typesOf = state::typesOf,
             nextLessonDate = { subject, type -> state.nextLessonDate(subject, after = lesson.date, type = type) },
+            thisLesson = lesson.date,
             onSave = { viewModel.save(it); editing = null },
             onDelete = draft.id?.let { id -> { viewModel.delete(id); editing = null } },
             onDismiss = { editing = null },

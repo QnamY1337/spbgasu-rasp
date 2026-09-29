@@ -93,6 +93,8 @@ fun HomeworkEditorSheet(
     onSave: (HomeworkDraft) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
+    /** Редактор открыт из карточки пары — первым идёт срок "На эту пару" (её дата). */
+    thisLesson: LocalDate? = null,
 ) {
     var subject by rememberSaveable { mutableStateOf(initial.subject) }
     var description by rememberSaveable { mutableStateOf(initial.description) }
@@ -177,6 +179,7 @@ fun HomeworkEditorSheet(
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val options = buildList {
+                    thisLesson?.let { add("На эту пару · ${dayShort(it)}" to it) }
                     next?.let { add("К след. ${nextOfType(type?.takeIf { t -> t in types })} · ${dayShort(it)}" to it) }
                     add("Завтра" to today.plusDays(1))
                     add("Через неделю" to today.plusWeeks(1))

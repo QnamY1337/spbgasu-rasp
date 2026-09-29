@@ -2,9 +2,12 @@ package com.example.gasuschedule.presentation.schedule
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.gasuschedule.domain.model.HomeworkItem
+import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import com.example.gasuschedule.domain.model.WeekSchedule
+import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.usecase.GetWeekScheduleUseCase
@@ -48,6 +51,8 @@ data class ScheduleUiState(
     val now: LocalDateTime = LocalDateTime.MIN,
     val isRefreshing: Boolean = false,
     val loaded: Boolean = false,
+    /** Задания по парам, на которых их сдавать (id пары -> задания). */
+    val homework: Map<String, List<HomeworkItem>> = emptyMap(),
 ) {
     val today: LocalDate get() = now.toLocalDate()
     fun weekOf(date: LocalDate): ScheduleWeek? = weeks.firstOrNull { date in it.startDate..it.endDate }
@@ -61,6 +66,7 @@ class ScheduleViewModel @Inject constructor(
     private val sync: SyncScheduleUseCase,
     private val getWeek: GetWeekScheduleUseCase,
     private val clock: Clock,
+    homework: HomeworkRepository,
 ) : ViewModel() {
 
     private val selectedDate = MutableStateFlow(LocalDate.now(clock))
@@ -89,8 +95,8 @@ class ScheduleViewModel @Inject constructor(
     private val week = selectedWeekStart.flatMapLatest { getWeek(it) }
 
     val state: StateFlow<ScheduleUiState> = combine(
-        semester, week, selectedDate, now, refreshing,
-    ) { (group, weeks, byDate), week, selected, now, refreshing ->
+        semester, week, selectedDate, now, combine(refreshing, homework.observeAll(), ::Pair),
+    ) { (group, weeks, byDate), week, selected, now, (refreshing, tasks) ->
         ScheduleUiState(
             group = group,
             days = dayRange(weeks, now.toLocalDate()),
@@ -101,6 +107,7 @@ class ScheduleViewModel @Inject constructor(
             now = now,
             isRefreshing = refreshing,
             loaded = true,
+            homework = HomeworkPlanning.byLesson(tasks, byDate.values.flatten()),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScheduleUiState())
 

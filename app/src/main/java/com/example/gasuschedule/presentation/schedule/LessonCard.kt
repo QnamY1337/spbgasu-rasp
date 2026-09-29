@@ -22,6 +22,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.LessonType
 import com.example.gasuschedule.domain.model.shortLabel
@@ -46,6 +48,8 @@ fun LessonCard(
     timing: LessonTiming,
     now: LocalDateTime,
     modifier: Modifier = Modifier,
+    /** Задания, которые сдавать на этой паре. */
+    homework: List<HomeworkItem> = emptyList(),
 ) {
     val scheme = MaterialTheme.colorScheme
     val faint = GasuTheme.colors.textFaint
@@ -129,6 +133,10 @@ fun LessonCard(
                         Spacer(Modifier.height(4.dp))
                         Text(it, style = MaterialTheme.typography.bodySmall, color = secondaryText)
                     }
+                    if (homework.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        HomeworkLine(homework, if (timing == LessonTiming.PAST) faint else scheme.primary, secondaryText)
+                    }
                 }
             }
         }
@@ -140,6 +148,26 @@ fun LessonCard(
             )
         }
     }
+}
+
+/** "ДЗ · Типовик 3 · +1": первое невыполненное задание; все сделаны — "ДЗ сделано ✓". */
+@Composable
+private fun HomeworkLine(homework: List<HomeworkItem>, accent: Color, muted: Color) {
+    val open = homework.filter { !it.isDone }
+    Text(
+        buildAnnotatedString {
+            if (open.isEmpty()) {
+                withStyle(SpanStyle(color = muted)) { append("ДЗ сделано ✓") }
+            } else {
+                withStyle(SpanStyle(color = accent, fontWeight = FontWeight.SemiBold)) { append("ДЗ · ") }
+                withStyle(SpanStyle(color = accent)) { append(open.first().description.lineSequence().first()) }
+                if (open.size > 1) withStyle(SpanStyle(color = muted)) { append(" · +${open.size - 1}") }
+            }
+        },
+        style = MaterialTheme.typography.bodySmall,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable

@@ -21,17 +21,28 @@ object HomeworkPlanning {
     val DEFAULT_DEADLINE_TIME: LocalTime = LocalTime.of(9, 0)
 
     /**
-     * Когда задание нужно сдать: начало первой пары по этому предмету в день сдачи
-     * (задают обычно "к следующей паре"), иначе 09:00 того дня. null — срока нет.
+     * Пара, на которой сдаётся задание. Если его добавили на конкретную пару и срок — её день,
+     * это она. Иначе — первая пара по предмету в день сдачи, причём нужного типа
+     * (задание к практике сдаётся на практике, даже если утром лекция). null — срока нет
+     * или в тот день пар по предмету нет.
      */
+    fun dueLesson(item: HomeworkItem, lessons: List<Lesson>): Lesson? {
+        val due = item.dueDate ?: return null
+        lessons.firstOrNull { it.id == item.lessonId && it.date == due }?.let { return it }
+        val sameDay = lessons.filter { it.date == due && sameSubject(it.subject, item.subject) }
+        return (sameDay.filter { it.type == item.lessonType }.ifEmpty { sameDay }).minByOrNull { it.startTime }
+    }
+
+    /** Когда задание нужно сдать: начало пары из [dueLesson], иначе 09:00 дня сдачи. null — срока нет. */
     fun deadline(item: HomeworkItem, lessons: List<Lesson>): LocalDateTime? {
         val due = item.dueDate ?: return null
-        val sameDay = lessons.filter { it.date == due && sameSubject(it.subject, item.subject) }
-        // Задание к практике сдаётся на практике: если в этот день есть и лекция, берём практику.
-        val lessonStart = (sameDay.filter { it.type == item.lessonType }.ifEmpty { sameDay })
-            .minOfOrNull { it.startTime }
-        return due.atTime(lessonStart ?: DEFAULT_DEADLINE_TIME)
+        return due.atTime(dueLesson(item, lessons)?.startTime ?: DEFAULT_DEADLINE_TIME)
     }
+
+    /** Задания по парам, на которых их сдавать: id пары -> задания (для строки "ДЗ" в карточке). */
+    fun byLesson(items: List<HomeworkItem>, lessons: List<Lesson>): Map<String, List<HomeworkItem>> =
+        items.mapNotNull { item -> dueLesson(item, lessons)?.let { it.id to item } }
+            .groupBy({ it.first }, { it.second })
 
     /**
      * Дата следующей пары по предмету после [after] — срок "к следующей паре".

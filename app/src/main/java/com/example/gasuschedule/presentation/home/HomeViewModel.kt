@@ -64,6 +64,8 @@ data class HomeUiState(
     val mode: TravelMode = TravelMode.TRANSIT,
     /** Невыполненные задания со сроком сегодня/завтра или просроченные. */
     val urgentHomework: List<HomeworkItem> = emptyList(),
+    /** Задания по парам, на которых их сдавать (id пары -> задания). */
+    val homework: Map<String, List<HomeworkItem>> = emptyMap(),
     /** Погода на сегодня; null — не загрузилась (блок тогда не показываем). */
     val weather: DayWeather? = null,
     val refreshing: Boolean = false,
@@ -129,6 +131,7 @@ class HomeViewModel @Inject constructor(
             mode = mode,
             refreshing = refreshing,
             weather = weather,
+            homework = HomeworkPlanning.byLesson(tasks, lessons),
             urgentHomework = tasks.filter { HomeworkPlanning.group(it, now.toLocalDate()) == HomeworkGroup.URGENT }
                 .sortedWith(compareBy(nullsLast()) { it.dueDate }),
         )

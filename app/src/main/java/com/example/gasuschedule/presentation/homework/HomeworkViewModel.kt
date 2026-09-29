@@ -41,14 +41,12 @@ data class HomeworkUiState(
     fun typesOf(subject: String): List<LessonType> = HomeworkPlanning.typesOf(subject, lessons)
 
     /**
-     * Задания пары: заданные на ней и те, что нужно сдать к ней. Задание к практике
-     * не показывается под лекцией того же дня (и наоборот).
+     * Задания пары: добавленные на ней и те, что сдавать именно на ней ([HomeworkPlanning.dueLesson]).
+     * Задание к практике не показывается под лекцией того же дня, а задание на 3-ю пару — под 2-й.
      */
-    fun forLesson(lesson: Lesson): List<HomeworkItem> = items.filter {
-        it.lessonId == lesson.id ||
-            (it.dueDate == lesson.date &&
-                HomeworkPlanning.sameSubject(it.subject, lesson.subject) &&
-                (it.lessonType == null || it.lessonType == lesson.type))
+    fun forLesson(lesson: Lesson): List<HomeworkItem> {
+        val known = if (lessons.any { it.id == lesson.id }) lessons else lessons + lesson
+        return items.filter { it.lessonId == lesson.id || HomeworkPlanning.dueLesson(it, known)?.id == lesson.id }
     }
 }
 

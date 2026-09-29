@@ -193,7 +193,7 @@ private fun HomeContent(
         }
         item { DayTitle(state, side.padding(top = 8.dp)) }
         items(state.lessons, key = { it.id }) { lesson ->
-            LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, side)
+            LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, side, homework = state.homework[lesson.id].orEmpty())
         }
         if (state.lessons.isNotEmpty()) {
             item { CenteredDivider("Пар больше нет", side.padding(top = 8.dp)) }
