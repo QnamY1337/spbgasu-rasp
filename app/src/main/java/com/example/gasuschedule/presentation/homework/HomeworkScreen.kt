@@ -193,7 +193,7 @@ private fun EmptyHomework() {
         Text("Заданий нет", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Нажмите на пару в расписании или на главной — задание можно добавить на эту пару или к следующей такой же.",
+            "Нажмите на пару в расписании или на главной — задание можно добавить на эту пару или к следующей такой же (лекция, практика, лаба).",
             style = MaterialTheme.typography.bodyMedium,
             color = GasuTheme.colors.textFaint,
             textAlign = TextAlign.Center,
@@ -241,13 +241,13 @@ fun LessonHomeworkMenu(
             )
         }
         DropdownMenuItem(
-            text = { Text("ДЗ на эту пару · ${dayShort(lesson.date)}", color = scheme.primary, fontWeight = FontWeight.SemiBold) },
+            text = { Text("На эту пару · ${dayShort(lesson.date)}", color = scheme.primary, fontWeight = FontWeight.SemiBold) },
             leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = scheme.primary) },
             onClick = { onDismiss(); editing = newDraft(lesson, lesson.date) },
         )
         next?.let { date ->
             DropdownMenuItem(
-                text = { Text("ДЗ к след. ${nextOfType(lesson.type)} · ${dayShort(date)}", color = scheme.primary) },
+                text = { Text("К след. ${nextOfType(lesson.type)} · ${dayShort(date)}", color = scheme.primary) },
                 leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, tint = scheme.primary) },
                 onClick = { onDismiss(); editing = newDraft(lesson, date) },
             )
