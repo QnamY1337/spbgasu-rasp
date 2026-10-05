@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
@@ -36,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -95,7 +97,7 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
                     }
                     if (!showDone) continue
                 } else {
-                    item(key = "title-$group") { GroupTitle(group.title, items.size) }
+                    item(key = "title-$group") { GroupTitle(group.title, items.size, urgent = group == HomeworkGroup.URGENT) }
                 }
                 items(items, key = { it.id }) { item ->
                     HomeworkRow(item, state.today, onToggle = { viewModel.toggle(item) }, onClick = { editing = draftOf(item) })
@@ -118,10 +120,27 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun GroupTitle(title: String, count: Int) {
+private fun GroupTitle(title: String, count: Int, urgent: Boolean = false) {
+    val color = if (urgent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     Row(Modifier.padding(top = 14.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title.uppercase(), style = MonoStyles.label, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(count.toString(), style = MonoStyles.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title.uppercase(), style = MonoStyles.label, color = color, modifier = Modifier.weight(1f))
+        Text(count.toString(), style = MonoStyles.label, color = color)
+    }
+}
+
+/** Срок плашкой: просрочено — красная, сегодня — бренд, завтра — тон бренда, дальше — серая. */
+@Composable
+private fun DueChip(text: String, due: LocalDate, today: LocalDate, done: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    val (bg, fg) = when {
+        done -> Color.Transparent to GasuTheme.colors.textFaint
+        due.isBefore(today) -> scheme.error to scheme.onError
+        due == today -> scheme.primary to scheme.onPrimary
+        due == today.plusDays(1) -> scheme.primaryContainer to scheme.onPrimaryContainer
+        else -> scheme.outlineVariant to scheme.onSurfaceVariant
+    }
+    Surface(shape = RoundedCornerShape(6.dp), color = bg) {
+        Text(text, style = MonoStyles.label, color = fg, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
     }
 }
 
@@ -158,20 +177,7 @@ internal fun HomeworkRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    item.dueDate?.let { due ->
-                        val text = dueText(due, today)
-                        val overdueOrSoon = !item.isDone && !due.isAfter(today.plusDays(1))
-                        Text(
-                            text,
-                            style = MonoStyles.label,
-                            color = when {
-                                item.isDone -> faint
-                                due.isBefore(today) -> scheme.error
-                                overdueOrSoon -> scheme.primary
-                                else -> scheme.onSurfaceVariant
-                            },
-                        )
-                    }
+                    item.dueDate?.let { due -> DueChip(dueText(due, today), due, today, item.isDone) }
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
