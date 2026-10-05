@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -304,6 +306,8 @@ private fun TodayTab(state: ScheduleUiState, onSelectDate: (LocalDate) -> Unit) 
         if (target >= 0 && target != pagerState.currentPage) pagerState.scrollToPage(target)
     }
 
+    Column(Modifier.fillMaxSize()) {
+    DayStrip(state, days, onSelectDate)
     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
         val date = days[page]
         DayPage(
@@ -314,6 +318,68 @@ private fun TodayTab(state: ScheduleUiState, onSelectDate: (LocalDate) -> Unit) 
                 { scope.launch { pagerState.animateScrollToPage(days.indexOf(state.today)) } }
             } else null,
         )
+    }
+    }
+}
+
+/** Полоска дней недели выбранной даты: число, точки по числу пар, подсветка сегодня и выбранного. */
+@Composable
+private fun DayStrip(state: ScheduleUiState, days: List<LocalDate>, onSelect: (LocalDate) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val monday = state.selectedDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        for (i in 0..5) {
+            val date = monday.plusDays(i.toLong())
+            val selected = date == state.selectedDate
+            val isToday = date == state.today
+            val count = state.lessonsByDate[date].orEmpty().size
+            val enabled = date in days
+            val fg = when {
+                selected -> scheme.onPrimary
+                isToday -> scheme.primary
+                else -> scheme.onSurface
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        when {
+                            selected -> scheme.primary
+                            isToday -> scheme.primaryContainer
+                            else -> scheme.surface
+                        },
+                    )
+                    .border(1.dp, if (selected) scheme.primary else scheme.outlineVariant, RoundedCornerShape(12.dp))
+                    .clickable(enabled = enabled, onClickLabel = "Открыть день") { onSelect(date) }
+                    .padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    shortDayName(date),
+                    style = MonoStyles.caption,
+                    color = if (selected) scheme.onPrimary else scheme.onSurfaceVariant,
+                )
+                Text(
+                    date.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (enabled) fg else GasuTheme.colors.textFaint,
+                )
+                Row(Modifier.padding(top = 3.dp).height(5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    repeat(count.coerceAtMost(4)) {
+                        Box(
+                            Modifier
+                                .size(width = 5.dp, height = 5.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(if (selected) scheme.onPrimary.copy(alpha = 0.85f) else scheme.primary),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
