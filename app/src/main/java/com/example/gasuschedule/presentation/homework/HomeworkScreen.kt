@@ -168,7 +168,7 @@ private fun SegmentButton(text: String, selected: Boolean, modifier: Modifier, o
         modifier
             .heightIn(min = 44.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
+            .background(if (selected) colors.onHeader else Color.Transparent)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -176,7 +176,7 @@ private fun SegmentButton(text: String, selected: Boolean, modifier: Modifier, o
             text,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) MaterialTheme.colorScheme.primary else colors.onHeader.copy(alpha = 0.85f),
+            color = if (selected) colors.header else colors.onHeader.copy(alpha = 0.85f),
         )
     }
 }
@@ -202,7 +202,7 @@ private fun DueChip(text: String, due: LocalDate, today: LocalDate, done: Boolea
         else -> scheme.outlineVariant to scheme.onSurfaceVariant
     }
     Surface(shape = RoundedCornerShape(6.dp), color = bg) {
-        Text(text, style = MonoStyles.label, color = fg, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
     }
 }
 

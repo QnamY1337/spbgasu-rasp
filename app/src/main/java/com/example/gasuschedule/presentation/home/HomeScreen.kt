@@ -19,10 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -229,13 +227,13 @@ private fun TimelineRow(
     val highlighted = timing == LessonTiming.CURRENT || timing == LessonTiming.NEXT
     val dotY = if (highlighted) 24.dp else 14.dp
     Row(modifier.height(IntrinsicSize.Min)) {
-        Column(Modifier.width(44.dp).padding(top = dotY - 7.dp), horizontalAlignment = Alignment.End) {
-            Text(lesson.startTime.toString(), style = MonoStyles.time, color = if (past) faint else scheme.onSurface)
-            Text(lesson.endTime.toString(), style = MonoStyles.timeSecondary, color = if (past) faint else scheme.onSurfaceVariant)
+        Column(Modifier.width(52.dp).padding(top = dotY - 9.dp), horizontalAlignment = Alignment.End) {
+            Text(lesson.startTime.toString(), style = MonoStyles.time, color = if (past) faint else scheme.onSurface, maxLines = 1, softWrap = false)
+            Text(lesson.endTime.toString(), style = MonoStyles.timeSecondary, color = if (past) faint else scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
         }
         Box(
             Modifier
-                .width(22.dp)
+                .width(24.dp)
                 .fillMaxHeight()
                 .drawBehind {
                     val x = size.width / 2
@@ -309,7 +307,6 @@ private fun HeaderContent(state: HomeUiState) {
             color = colors.onHeader,
         )
         val chips = buildList {
-            state.weather?.let { add("${signedTemp(it.tempC)} · ${it.condition.lowercase()}") }
             if (state.shownDate == state.today) state.lessons.lastOrNull()?.let { add("Заканчиваем в ${it.endTime}") }
         }
         if (chips.isNotEmpty() || state.group != null) {
@@ -403,42 +400,22 @@ private fun CommuteCard(commute: Commute, state: HomeUiState, onOpenSettings: ()
     val scheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val l = commute.lesson
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = scheme.surface,
-        border = BorderStroke(1.dp, scheme.primary),
-        shadowElevation = 3.dp,
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(6.dp), color = scheme.primary) {
-                    Text(
-                        "ПЕРВАЯ ПАРА · ${dayLabel(l.date, state.today)}",
-                        style = MonoStyles.label.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
-                        color = scheme.onPrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Text("${l.startTime}–${l.endTime}", style = MonoStyles.time, color = scheme.onSurface)
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(l.subject, style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold))
+    // Пара сама видна в таймлайне ниже — здесь только дорога к ней.
+    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = scheme.primaryContainer) {
+        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp)) {
             Text(
-                listOf(l.room, l.teacher).filter { it.isNotBlank() }.joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium,
-                color = scheme.onSurfaceVariant,
+                "ДОРОГА · ${dayLabel(l.date, state.today)} К ${l.startTime}",
+                style = MonoStyles.caption.copy(fontWeight = FontWeight.SemiBold),
+                color = scheme.onPrimaryContainer.copy(alpha = 0.8f),
             )
-            Spacer(Modifier.height(12.dp))
-            Surface(shape = RoundedCornerShape(10.dp), color = scheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
-              Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Spacer(Modifier.height(4.dp))
             when (val leave = commute.leave) {
                 LeaveEstimate.NoHome -> {
                     Text(
                         "Укажите адрес дома — посчитаем, во сколько выходить к первой паре.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onPrimaryContainer,
+                        modifier = Modifier.padding(end = 8.dp),
                     )
                     TextButton(onClick = onOpenSettings, contentPadding = PaddingValues(0.dp)) {
                         Text("Указать адрес", fontWeight = FontWeight.SemiBold)
@@ -448,31 +425,41 @@ private fun CommuteCard(commute: Commute, state: HomeUiState, onOpenSettings: ()
                     "Корпус первой пары не найден в справочнике — маршрут недоступен.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onPrimaryContainer,
+                    modifier = Modifier.padding(end = 8.dp),
                 )
                 is LeaveEstimate.Estimated -> {
                     val r = leave.route
                     val leaveAt = l.date.atTime(r.recommendedLeaveTime)
-                    Text("Выйти в ${r.recommendedLeaveTime}", style = MaterialTheme.typography.headlineMedium, color = scheme.onPrimaryContainer)
-                    leaveHint(state.now, leaveAt)?.let {
-                        Text(it, style = MaterialTheme.typography.titleSmall, color = scheme.primary)
-                    }
-                    Spacer(Modifier.height(4.dp))
                     val how = if (r.mode == TravelMode.WALKING) "пешком" else "на транспорте"
-                    Text(
-                        "Дорога ≈${r.travelMinutes} мин $how · ${r.building.name}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = scheme.onPrimaryContainer,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { YandexMaps.openRoute(context, state.home?.point, r.building.location, r.mode) },
-                        shape = MaterialTheme.shapes.medium,
-                        border = BorderStroke(1.dp, scheme.primary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = scheme.primary),
-                    ) { Text("Маршрут в Яндекс.Картах", fontWeight = FontWeight.SemiBold) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    "Выйти в ${r.recommendedLeaveTime}",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
+                                    color = scheme.onPrimaryContainer,
+                                )
+                                leaveHint(state.now, leaveAt)?.let {
+                                    Text(
+                                        "  $it",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = scheme.primary,
+                                        modifier = Modifier.padding(bottom = 3.dp),
+                                    )
+                                }
+                            }
+                            Text(
+                                "≈${r.travelMinutes} мин $how · ${r.building.name}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = scheme.onPrimaryContainer.copy(alpha = 0.85f),
+                            )
+                        }
+                        TextButton(onClick = { YandexMaps.openRoute(context, state.home?.point, r.building.location, r.mode) }) {
+                            Text("Маршрут", fontWeight = FontWeight.SemiBold, color = scheme.primary)
+                        }
+                    }
                 }
-            }
-              }
             }
         }
     }
@@ -507,7 +494,8 @@ private fun UrgentHomeworkCard(state: HomeUiState, onOpen: () -> Unit, modifier:
                     item.dueDate?.let {
                         Text(
                             dueText(it, state.today),
-                            style = MonoStyles.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
                             color = if (it.isBefore(state.today)) scheme.error else scheme.primary,
                         )
                     }
