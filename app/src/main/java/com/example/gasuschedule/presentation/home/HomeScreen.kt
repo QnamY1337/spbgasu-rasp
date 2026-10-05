@@ -39,6 +39,13 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.example.gasuschedule.domain.model.Lesson
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
@@ -191,11 +198,59 @@ private fun HomeContent(
         }
         item { DayTitle(state, side.padding(top = 8.dp)) }
         items(state.lessons, key = { it.id }) { lesson ->
-            LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, side, homework = state.homework[lesson.id].orEmpty())
+            val index = state.lessons.indexOf(lesson)
+            TimelineRow(
+                lesson = lesson,
+                timing = timings[lesson.id] ?: LessonTiming.UPCOMING,
+                first = index == 0,
+                last = index == state.lessons.lastIndex,
+                modifier = side,
+            ) { LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, it, homework = state.homework[lesson.id].orEmpty(), showTime = false) }
         }
         if (state.lessons.isNotEmpty()) {
             item { CenteredDivider("Пар больше нет", side.padding(top = 8.dp)) }
         }
+    }
+}
+
+/** Строка таймлайна: время слева, рельса с точкой, карточка пары справа. */
+@Composable
+private fun TimelineRow(
+    lesson: Lesson,
+    timing: LessonTiming,
+    first: Boolean,
+    last: Boolean,
+    modifier: Modifier = Modifier,
+    card: @Composable (Modifier) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val faint = GasuTheme.colors.textFaint
+    val past = timing == LessonTiming.PAST
+    val highlighted = timing == LessonTiming.CURRENT || timing == LessonTiming.NEXT
+    val dotY = if (highlighted) 24.dp else 14.dp
+    Row(modifier.height(IntrinsicSize.Min)) {
+        Column(Modifier.width(44.dp).padding(top = dotY - 7.dp), horizontalAlignment = Alignment.End) {
+            Text(lesson.startTime.toString(), style = MonoStyles.time, color = if (past) faint else scheme.onSurface)
+            Text(lesson.endTime.toString(), style = MonoStyles.timeSecondary, color = if (past) faint else scheme.onSurfaceVariant)
+        }
+        Box(
+            Modifier
+                .width(22.dp)
+                .fillMaxHeight()
+                .drawBehind {
+                    val x = size.width / 2
+                    val y = dotY.toPx()
+                    val line = scheme.outlineVariant
+                    drawLine(line, Offset(x, if (first) y else 0f), Offset(x, if (last) y else size.height), strokeWidth = 2.dp.toPx())
+                    if (highlighted) {
+                        drawCircle(scheme.primary, radius = 6.dp.toPx(), center = Offset(x, y))
+                    } else {
+                        drawCircle(scheme.surface, radius = 6.dp.toPx(), center = Offset(x, y))
+                        drawCircle(if (past) line else scheme.outline, radius = 6.dp.toPx(), center = Offset(x, y), style = Stroke(2.dp.toPx()))
+                    }
+                },
+        )
+        card(Modifier.weight(1f))
     }
 }
 
