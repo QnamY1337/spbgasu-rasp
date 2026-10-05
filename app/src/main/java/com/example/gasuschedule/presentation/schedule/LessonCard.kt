@@ -34,10 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.LessonType
-import com.example.gasuschedule.domain.model.shortLabel
 import com.example.gasuschedule.presentation.theme.GasuTheme
 import com.example.gasuschedule.presentation.theme.MonoStyles
 import java.time.LocalDateTime
@@ -116,19 +116,18 @@ fun LessonCard(
                         .weight(1f)
                         .padding(start = 14.dp),
                 ) {
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = primaryText)) {
-                                append(lesson.subject)
-                            }
-                            if (lesson.type != LessonType.OTHER) {
-                                withStyle(SpanStyle(fontWeight = FontWeight.Normal, color = secondaryText)) {
-                                    append(" (${lesson.type.shortLabel})")
-                                }
-                            }
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                    )
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(
+                            lesson.subject,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = primaryText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (lesson.type != LessonType.OTHER) {
+                            Spacer(Modifier.width(8.dp))
+                            TypeChip(lesson.type, past = timing == LessonTiming.PAST)
+                        }
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         listOf(lesson.room, lesson.teacher).filter { it.isNotBlank() }.joinToString(" · "),
@@ -178,6 +177,29 @@ private fun HomeworkLine(homework: List<HomeworkItem>, accent: Color, muted: Col
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+/** "ЛЕК" / "ПР" / "ЛАБ" — вид занятия плашкой справа от названия. */
+@Composable
+private fun TypeChip(type: LessonType, past: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    val text = when (type) {
+        LessonType.LECTURE -> "ЛЕК"
+        LessonType.PRACTICE -> "ПР"
+        LessonType.LAB -> "ЛАБ"
+        LessonType.OTHER -> return
+    }
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = if (past) scheme.outlineVariant.copy(alpha = 0.5f) else scheme.primaryContainer,
+    ) {
+        Text(
+            text,
+            style = MonoStyles.label.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp),
+            color = if (past) GasuTheme.colors.textFaint else scheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+        )
+    }
 }
 
 @Composable
