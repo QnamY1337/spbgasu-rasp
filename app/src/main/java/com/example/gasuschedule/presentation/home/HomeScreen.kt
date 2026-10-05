@@ -246,15 +246,49 @@ private fun HeaderContent(state: HomeUiState) {
             }
         }
         Spacer(Modifier.height(10.dp))
+        Text(dayTitle(state.today).uppercase(), style = MonoStyles.label, color = colors.onHeaderMuted)
+        Spacer(Modifier.height(4.dp))
         Text(
-            dayTitle(state.today),
-            // В 2 раза меньше headlineMedium (26 sp) — по просьбе, чтобы шапка была компактнее.
-            style = MaterialTheme.typography.headlineMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
+            headline(state),
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
             color = colors.onHeader,
         )
-        state.group?.let {
-            Text(it, style = MonoStyles.label, color = colors.onHeaderMuted, modifier = Modifier.padding(top = 4.dp))
+        val chips = buildList {
+            state.weather?.let { add("${signedTemp(it.tempC)} · ${it.condition.lowercase()}") }
+            if (state.shownDate == state.today) state.lessons.lastOrNull()?.let { add("Заканчиваем в ${it.endTime}") }
         }
+        if (chips.isNotEmpty() || state.group != null) {
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                state.group?.let { HeaderChip(it, mono = true) }
+                chips.forEach { HeaderChip(it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderChip(text: String, mono: Boolean = false) {
+    val colors = GasuTheme.colors
+    Surface(shape = RoundedCornerShape(8.dp), color = colors.onHeader.copy(alpha = 0.16f)) {
+        Text(
+            text,
+            style = if (mono) MonoStyles.label.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.bodySmall,
+            color = colors.onHeader,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+        )
+    }
+}
+
+/** "Сегодня 3 пары, первая в 10:00"; в выходной и после пар — про ближайший день. */
+private fun headline(state: HomeUiState): String {
+    val date = state.shownDate ?: return "В ближайшие две недели пар нет"
+    val first = state.lessons.firstOrNull() ?: return "Пар нет"
+    val count = lessonsCount(state.lessons.size)
+    return when {
+        date == state.today -> "Сегодня $count, первая в ${first.startTime}"
+        date == state.today.plusDays(1) -> "Завтра $count, первая в ${first.startTime}"
+        else -> "${dayTitle(date)}: $count, первая в ${first.startTime}"
     }
 }
 
@@ -314,14 +348,36 @@ private fun CommuteCard(commute: Commute, state: HomeUiState, onOpenSettings: ()
     val scheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val l = commute.lesson
-    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = scheme.primaryContainer) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = scheme.surface,
+        border = BorderStroke(1.dp, scheme.primary),
+        shadowElevation = 3.dp,
+    ) {
         Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(6.dp), color = scheme.primary) {
+                    Text(
+                        "ПЕРВАЯ ПАРА · ${dayLabel(l.date, state.today)}",
+                        style = MonoStyles.label.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                        color = scheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                Text("${l.startTime}–${l.endTime}", style = MonoStyles.time, color = scheme.onSurface)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(l.subject, style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold))
             Text(
-                "ДОРОГА К 1 ПАРЕ · ${dayLabel(l.date, state.today)}",
-                style = MonoStyles.label,
-                color = scheme.onPrimaryContainer.copy(alpha = 0.8f),
+                listOf(l.room, l.teacher).filter { it.isNotBlank() }.joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(12.dp))
+            Surface(shape = RoundedCornerShape(10.dp), color = scheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+              Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             when (val leave = commute.leave) {
                 LeaveEstimate.NoHome -> {
                     Text(
@@ -361,12 +417,8 @@ private fun CommuteCard(commute: Commute, state: HomeUiState, onOpenSettings: ()
                     ) { Text("Маршрут в Яндекс.Картах", fontWeight = FontWeight.SemiBold) }
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "${l.startTime} · ${l.subject} · ${l.room}",
-                style = MaterialTheme.typography.bodySmall,
-                color = scheme.onPrimaryContainer.copy(alpha = 0.75f),
-            )
+              }
+            }
         }
     }
 }
