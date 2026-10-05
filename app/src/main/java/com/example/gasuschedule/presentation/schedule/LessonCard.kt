@@ -57,6 +57,8 @@ fun LessonCard(
     modifier: Modifier = Modifier,
     /** Задания, которые сдавать на этой паре. */
     homework: List<HomeworkItem> = emptyList(),
+    /** false — время вынесено наружу (таймлайн на главной), в карточке остаётся только содержимое. */
+    showTime: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
     val faint = GasuTheme.colors.textFaint
@@ -100,21 +102,23 @@ fun LessonCard(
                     .padding(start = if (timing == LessonTiming.CURRENT) 16.dp else 12.dp, end = 14.dp)
                     .padding(vertical = 14.dp),
             ) {
-                Column(Modifier.width(62.dp)) {
-                    Text("${lesson.lessonNumber} пара", style = MonoStyles.caption, color = secondaryText)
-                    Text(lesson.startTime.toString(), style = MonoStyles.time, color = primaryText)
-                    Text(lesson.endTime.toString(), style = MonoStyles.timeSecondary, color = secondaryText)
+                if (showTime) {
+                    Column(Modifier.width(62.dp)) {
+                        Text("${lesson.lessonNumber} пара", style = MonoStyles.caption, color = secondaryText)
+                        Text(lesson.startTime.toString(), style = MonoStyles.time, color = primaryText)
+                        Text(lesson.endTime.toString(), style = MonoStyles.timeSecondary, color = secondaryText)
+                    }
+                    Box(
+                        Modifier
+                            .width(1.dp)
+                            .fillMaxHeight()
+                            .background(if (timing == LessonTiming.CURRENT) scheme.primary.copy(alpha = 0.4f) else scheme.outlineVariant),
+                    )
                 }
-                Box(
-                    Modifier
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(if (timing == LessonTiming.CURRENT) scheme.primary.copy(alpha = 0.4f) else scheme.outlineVariant),
-                )
                 Column(
                     Modifier
                         .weight(1f)
-                        .padding(start = 14.dp),
+                        .padding(start = if (showTime) 14.dp else 0.dp),
                 ) {
                     Row(verticalAlignment = Alignment.Top) {
                         Text(

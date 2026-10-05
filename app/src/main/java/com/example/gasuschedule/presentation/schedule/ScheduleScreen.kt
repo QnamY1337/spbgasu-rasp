@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.domain.model.Lesson
@@ -179,6 +180,9 @@ fun ScheduleScreen(
                     onTab(it)
                 },
             )
+            if (unseenChanges > 0 && (tab == TAB_TODAY || tab == TAB_WEEK)) {
+                ChangesBanner(unseenChanges) { onTab(TAB_CHANGES) }
+            }
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = onRefresh,
@@ -241,6 +245,28 @@ private fun Header(group: String, pill: String?, onGroupClick: () -> Unit) {
                 .padding(top = 6.dp)
                 .clickable(onClickLabel = "Сменить группу", onClick = onGroupClick),
         )
+    }
+}
+
+/** Плашка над расписанием: есть непросмотренные замены. */
+@Composable
+private fun ChangesBanner(count: Int, onOpen: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = scheme.surface,
+        border = BorderStroke(1.dp, scheme.outlineVariant),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${pluralRu(count, "новая замена", "новые замены", "новых замен")} в расписании",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text("Смотреть", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = scheme.primary)
+        }
     }
 }
 
