@@ -37,6 +37,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,7 +65,7 @@ import java.time.LocalDate
 /** Вкладка "Задания": список с группами по сроку, отметка выполнения, добавление и правка. */
 @Composable
 fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
-    StatusBarIcons(onBrickHeader = false)
+    StatusBarIcons(onBrickHeader = true)
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<HomeworkDraft?>(null) }
     var showDone by rememberSaveable { mutableStateOf(false) }
@@ -69,38 +75,40 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize().statusBarsPadding(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item {
-                Text("Задания", style = MaterialTheme.typography.headlineMedium)
-                if (state.urgentCount > 0) {
-                    Text(
-                        "Горят: ${pluralRu(state.urgentCount, "задание", "задания", "заданий")}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-            if (state.loaded && state.items.isEmpty()) {
-                item { EmptyHomework() }
-            }
-            for ((group, items) in state.groups) {
-                if (group == HomeworkGroup.DONE) {
-                    item(key = "done-toggle") {
-                        TextButton(onClick = { showDone = !showDone }, contentPadding = PaddingValues(0.dp)) {
-                            Text(if (showDone) "Скрыть выполненные" else "Выполненные (${items.size})")
-                        }
+        val doneCount = state.items.count { it.isDone }
+        val openCount = state.items.size - doneCount
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            HomeworkHeader(
+                openCount = openCount,
+                doneCount = doneCount,
+                showDone = showDone,
+                onShowDone = { showDone = it },
+            )
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (state.loaded && state.items.isEmpty()) {
+                    item { EmptyHomework() }
+                } else if (state.loaded && (if (showDone) doneCount else openCount) == 0) {
+                    item {
+                        Text(
+                            if (showDone) "Выполненных заданий пока нет" else "Все задания сделаны",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 32.dp),
+                        )
                     }
-                    if (!showDone) continue
-                } else {
-                    item(key = "title-$group") { GroupTitle(group.title, items.size, urgent = group == HomeworkGroup.URGENT) }
                 }
-                items(items, key = { it.id }) { item ->
-                    HomeworkRow(item, state.today, onToggle = { viewModel.toggle(item) }, onClick = { editing = draftOf(item) })
+                for ((group, items) in state.groups) {
+                    if ((group == HomeworkGroup.DONE) != showDone) continue
+                    if (group != HomeworkGroup.DONE) {
+                        item(key = "title-$group") { GroupTitle(group.title, items.size, urgent = group == HomeworkGroup.URGENT) }
+                    }
+                    items(items, key = { it.id }) { item ->
+                        HomeworkRow(item, state.today, onToggle = { viewModel.toggle(item) }, onClick = { editing = draftOf(item) })
+                    }
                 }
             }
         }
@@ -115,6 +123,60 @@ fun HomeworkRoute(viewModel: HomeworkViewModel = hiltViewModel()) {
             onSave = { viewModel.save(it); editing = null },
             onDelete = draft.id?.let { id -> { viewModel.delete(id); editing = null } },
             onDismiss = { editing = null },
+        )
+    }
+}
+
+/** Кирпичная шапка: заголовок, сколько осталось и переключатель «Открытые / Сделано». */
+@Composable
+private fun HomeworkHeader(openCount: Int, doneCount: Int, showDone: Boolean, onShowDone: (Boolean) -> Unit) {
+    val colors = GasuTheme.colors
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(colors.header)
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("Задания", style = MaterialTheme.typography.headlineMedium, color = colors.onHeader, modifier = Modifier.weight(1f))
+            Text(
+                "осталось $openCount из ${openCount + doneCount}",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onHeaderMuted,
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.Black.copy(alpha = 0.2f))
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            SegmentButton("Открытые · $openCount", selected = !showDone, modifier = Modifier.weight(1f)) { onShowDone(false) }
+            SegmentButton("Сделано · $doneCount", selected = showDone, modifier = Modifier.weight(1f)) { onShowDone(true) }
+        }
+    }
+}
+
+@Composable
+private fun SegmentButton(text: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val colors = GasuTheme.colors
+    Box(
+        modifier
+            .heightIn(min = 44.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.surface else Color.Transparent)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) MaterialTheme.colorScheme.primary else colors.onHeader.copy(alpha = 0.85f),
         )
     }
 }
