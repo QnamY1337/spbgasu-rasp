@@ -5,6 +5,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.ui.unit.IntOffset
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -147,6 +159,10 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
             navController = nav,
             startDestination = if (hasGroup) HomeDestination else OnboardingDestination(),
             modifier = Modifier.padding(padding).tabSwipe(currentTab) { nav.navigateToTab(it) },
+            enterTransition = { tabEnter() },
+            exitTransition = { tabExit() },
+            popEnterTransition = { tabEnter() },
+            popExitTransition = { tabExit() },
         ) {
             composable<OnboardingDestination> { backStackEntry ->
                 val changing = backStackEntry.toRoute<OnboardingDestination>().changing
@@ -180,6 +196,32 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
             }
         }
     }
+}
+
+private const val TAB_ANIM_MS = 320
+
+private fun tabIndex(dest: NavDestination): Int? =
+    Tab.entries.firstOrNull { dest.hasRoute(it.routeClass) }?.ordinal
+
+private val tabFade = tween<Float>(TAB_ANIM_MS, easing = FastOutSlowInEasing)
+private val tabMove = tween<IntOffset>(TAB_ANIM_MS, easing = FastOutSlowInEasing)
+
+/** Направление перехода между вкладками: 1 — вправо по списку, -1 — влево, null — не вкладки. */
+private fun tabDirection(from: NavDestination, to: NavDestination): Int? {
+    val fromIdx = tabIndex(from) ?: return null
+    val toIdx = tabIndex(to) ?: return null
+    return if (toIdx > fromIdx) 1 else -1
+}
+
+/** Вход: вкладка выезжает со стороны соседа + проявляется; прочие экраны — только проявление. */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition {
+    val dir = tabDirection(initialState.destination, targetState.destination) ?: return fadeIn(tabFade)
+    return slideInHorizontally(tabMove) { it * dir / 3 } + fadeIn(tabFade)
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition {
+    val dir = tabDirection(initialState.destination, targetState.destination) ?: return fadeOut(tabFade)
+    return slideOutHorizontally(tabMove) { -it * dir / 3 } + fadeOut(tabFade)
 }
 
 /**
