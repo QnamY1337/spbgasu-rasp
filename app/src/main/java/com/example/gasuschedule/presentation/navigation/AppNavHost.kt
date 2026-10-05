@@ -1,19 +1,29 @@
 package com.example.gasuschedule.presentation.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,8 +39,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,19 +90,11 @@ data object HomeworkDestination
 data object SettingsDestination
 
 /** Вкладки нижней панели. "Замены" — вкладка внутри "Расписания", не в нижней панели. */
-private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: String) {
-    HOME(HomeDestination, HomeDestination::class, "Главная"),
-    SCHEDULE(ScheduleDestination, ScheduleDestination::class, "Расписание"),
-    HOMEWORK(HomeworkDestination, HomeworkDestination::class, "Задания"),
-    SETTINGS(SettingsDestination, SettingsDestination::class, "Настройки"),
-}
-
-@Composable
-private fun Tab.icon(): Painter = when (this) {
-    Tab.HOME -> rememberVectorPainter(Icons.Default.Home)
-    Tab.SCHEDULE -> rememberVectorPainter(Icons.Default.DateRange)
-    Tab.HOMEWORK -> rememberVectorPainter(Icons.Default.Edit)
-    Tab.SETTINGS -> rememberVectorPainter(Icons.Default.Settings)
+private enum class Tab(val route: Any, val routeClass: KClass<*>, val title: String, val icon: NavIconKind) {
+    HOME(HomeDestination, HomeDestination::class, "Главная", NavIconKind.HOME),
+    SCHEDULE(ScheduleDestination, ScheduleDestination::class, "Расписание", NavIconKind.SCHEDULE),
+    HOMEWORK(HomeworkDestination, HomeworkDestination::class, "Задания", NavIconKind.HOMEWORK),
+    SETTINGS(SettingsDestination, SettingsDestination::class, "Настройки", NavIconKind.SETTINGS),
 }
 
 /** Число непросмотренных замен — для бейджа на вкладке. */
@@ -216,35 +216,67 @@ private fun NavHostController.navigateToTab(tab: Tab) = navigate(tab.route) {
     restoreState = true
 }
 
+/**
+ * Нижняя панель: свои иконки ([NavIcon]), активная вкладка — пилюля цвета бренда с тональной
+ * заливкой иконки. Подписи темнее прежних (контраст ≥ 4.5:1).
+ */
 @Composable
 private fun BottomBar(current: Tab, unseenChanges: Int, urgentHomework: Int, nav: NavHostController) {
     val scheme = MaterialTheme.colorScheme
-    NavigationBar(containerColor = scheme.surface) {
-        Tab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = tab == current,
-                onClick = { nav.navigateToTab(tab) },
-                icon = {
-                    BadgedBox(
-                        badge = {
-                            val count = when (tab) {
-                                Tab.SCHEDULE -> unseenChanges
-                                Tab.HOMEWORK -> urgentHomework
-                                else -> 0
+    Surface(color = scheme.surface) {
+        Column(Modifier.navigationBarsPadding()) {
+            HorizontalDivider(color = scheme.outlineVariant)
+            Row(
+                Modifier.fillMaxWidth().height(64.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                Tab.entries.forEach { tab ->
+                    val selected = tab == current
+                    val count = when (tab) {
+                        Tab.SCHEDULE -> unseenChanges
+                        Tab.HOMEWORK -> urgentHomework
+                        else -> 0
+                    }
+                    val tint = if (selected) scheme.primary else scheme.onSurfaceVariant
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .height(64.dp)
+                            .selectable(selected = selected, role = Role.Tab, onClick = { nav.navigateToTab(tab) }),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Box(
+                            Modifier
+                                .width(58.dp)
+                                .height(30.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (selected) scheme.primaryContainer else Color.Transparent),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            BadgedBox(
+                                badge = { if (count > 0) Badge(containerColor = scheme.primary) { Text(count.toString()) } },
+                            ) {
+                                NavIcon(
+                                    kind = tab.icon,
+                                    color = tint,
+                                    fill = if (selected) scheme.primary.copy(alpha = 0.26f) else Color.Transparent,
+                                    hole = if (selected) scheme.primary.copy(alpha = 0.26f) else scheme.surface,
+                                )
                             }
-                            if (count > 0) Badge(containerColor = scheme.primary) { Text(count.toString()) }
-                        },
-                    ) { Icon(tab.icon(), contentDescription = null) }
-                },
-                label = { Text(tab.title, style = MaterialTheme.typography.bodySmall) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = scheme.primary,
-                    selectedTextColor = scheme.primary,
-                    indicatorColor = scheme.primaryContainer,
-                    unselectedIconColor = scheme.onSurfaceVariant,
-                    unselectedTextColor = scheme.onSurfaceVariant,
-                ),
-            )
+                        }
+                        Text(
+                            tab.title,
+                            color = tint,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            maxLines = 1,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }
