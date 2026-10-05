@@ -21,7 +21,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.composed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -140,7 +146,7 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
         NavHost(
             navController = nav,
             startDestination = if (hasGroup) HomeDestination else OnboardingDestination(),
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.padding(padding).tabSwipe(currentTab) { nav.navigateToTab(it) },
         ) {
             composable<OnboardingDestination> { backStackEntry ->
                 val changing = backStackEntry.toRoute<OnboardingDestination>().changing
@@ -175,6 +181,33 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
         }
     }
 }
+
+/**
+ * Свайп влево/вправо переключает на соседнюю вкладку. Жесты, уже забранные вложенным содержимым
+ * (например, пейджер дней в "Расписании"), сюда не доходят.
+ */
+private fun Modifier.tabSwipe(current: Tab?, onSwitch: (Tab) -> Unit): Modifier =
+    if (current == null) this else composed {
+        val threshold = with(LocalDensity.current) { 80.dp.toPx() }
+        val currentState by rememberUpdatedState(current)
+        val onSwitchState by rememberUpdatedState(onSwitch)
+        pointerInput(Unit) {
+            var total = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { total = 0f },
+                onDragEnd = {
+                    val tabs = Tab.entries
+                    val target = when {
+                        total <= -threshold -> tabs.getOrNull(currentState.ordinal + 1)
+                        total >= threshold -> tabs.getOrNull(currentState.ordinal - 1)
+                        else -> null
+                    }
+                    target?.let(onSwitchState)
+                },
+                onHorizontalDrag = { _, delta -> total += delta },
+            )
+        }
+    }
 
 private fun NavHostController.navigateToTab(tab: Tab) = navigate(tab.route) {
     // "Главная" — корень стека после онбординга (стартовым мог быть онбординг).
