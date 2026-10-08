@@ -477,10 +477,8 @@ private fun WeatherRoadStrip(state: HomeUiState, onOpenSettings: () -> Unit, mod
                     Box(Modifier.width(1.dp).height(32.dp).background(scheme.outlineVariant))
                 }
             }
-            Row(
-                Modifier.weight(1f).padding(start = if (weather == null || commute != null) 12.dp else 0.dp, end = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            // Две строки внутри 56 dp: в одну строку пояснение обрезалось до "сб к…".
+            Column(Modifier.weight(1f).padding(start = if (weather == null || commute != null) 12.dp else 0.dp, end = 8.dp)) {
                 Text(
                     line.main,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -491,13 +489,12 @@ private fun WeatherRoadStrip(state: HomeUiState, onOpenSettings: () -> Unit, mod
                         else -> scheme.onSurfaceVariant
                     },
                     maxLines = 1,
-                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 line.sub?.let {
-                    Spacer(Modifier.width(6.dp))
                     Text(
                         it,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 16.sp),
                         color = scheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
