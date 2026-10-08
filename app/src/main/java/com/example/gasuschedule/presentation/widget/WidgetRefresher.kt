@@ -19,7 +19,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Когда перерисовывать виджет:
+ * Когда перерисовывать виджеты (обновляются оба — это дёшево, данные из локальной базы):
  * - сразу после синхронизации ([requestUpdate]);
  * - точно на границе пары ([scheduleRefreshAt]) — чтобы "ИДЁТ СЕЙЧАС" сменилось следующей парой;
  * - раз в 30 минут силами системы (updatePeriodMillis) — подстраховка.
@@ -34,6 +34,10 @@ class WidgetRefresher @Inject constructor(
     fun scheduleRefreshAt(at: LocalDateTime, now: LocalDateTime) =
         enqueue(AT_BOUNDARY, refreshDelay(at, now))
 
+    /** Своя очередь для виджета обратного отсчёта — он обновляется чаще, раз в минуту. */
+    fun scheduleCountdownAt(at: LocalDateTime, now: LocalDateTime) =
+        enqueue(COUNTDOWN, refreshDelay(at, now))
+
     private fun enqueue(name: String, delay: Duration) {
         val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
             .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
@@ -45,6 +49,7 @@ class WidgetRefresher @Inject constructor(
         // Две разные очереди: немедленное обновление не отменяет запланированное на границу пары.
         private const val NOW = "widget-refresh-now"
         private const val AT_BOUNDARY = "widget-refresh-boundary"
+        private const val COUNTDOWN = "widget-refresh-countdown"
 
         /** С запасом 30 секунд, чтобы точно оказаться после границы, и не чаще раза в минуту. */
         fun refreshDelay(at: LocalDateTime, now: LocalDateTime): Duration =
@@ -59,6 +64,7 @@ class WidgetRefreshWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         NextLessonWidget().updateAll(applicationContext)
+        CountdownWidget().updateAll(applicationContext)
         return Result.success()
     }
 }

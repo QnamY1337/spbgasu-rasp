@@ -17,7 +17,11 @@ object WidgetPreviews {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getInt(KEY_VERSION, -1) == appVersion) return
         val result = runCatching {
-            GlanceAppWidgetManager(context).setWidgetPreviews(NextLessonWidgetReceiver::class)
+            val manager = GlanceAppWidgetManager(context)
+            listOf(NextLessonWidgetReceiver::class, CountdownWidgetReceiver::class)
+                .map { manager.setWidgetPreviews(it) }
+                .firstOrNull { it != GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS }
+                ?: GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS
         }.getOrNull()
         // При RATE_LIMITED попробуем на следующем запуске.
         if (result == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS) {

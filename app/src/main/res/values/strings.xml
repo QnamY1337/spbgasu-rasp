@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">Ближайшая пара: время, предмет, аудитория</string>
+    <string name="widget_description">Во сколько выходить к первой паре и маршрут; в течение дня — ближайшая пара</string>
+    <string name="countdown_widget_description">Сколько минут до пары, а во время пары — сколько осталось</string>
 </resources>
