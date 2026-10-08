@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import com.example.gasuschedule.domain.model.GeoPoint
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository.Companion.DEFAULT_LEAVE_BUFFER_MINUTES
 import androidx.datastore.preferences.core.edit
@@ -107,7 +108,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[HOMEWORK_REMINDER_HOURS] = hours }
     }
 
+    override val themeMode: Flow<ThemeMode> = dataStore.data.map { p ->
+        p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM
+    }.distinctUntilChanged()
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[THEME_MODE] = mode.name }
+    }
+
     private companion object {
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val HOMEWORK_REMINDER_HOURS = intPreferencesKey("homework_reminder_hours")
         val HOME_LAT = doublePreferencesKey("home_lat")
         val HOME_LON = doublePreferencesKey("home_lon")

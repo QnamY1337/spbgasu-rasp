@@ -9,15 +9,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.navigation.AppNavHost
 import com.example.gasuschedule.presentation.theme.GasuTheme
@@ -40,6 +45,10 @@ class StartViewModel @Inject constructor(preferences: UserPreferencesRepository)
     val hasGroup: StateFlow<Boolean?> = flow { emit(preferences.groupName.first() != null) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Выбранная тема; null — ещё читаем DataStore (сплэш держится, чтобы тема не мигнула). */
+    val themeMode: StateFlow<ThemeMode?> = preferences.themeMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** Счётчик запросов "открыть замены" из уведомлений; во ViewModel — чтобы пережить поворот. */
     val openChangesRequest = MutableStateFlow(0)
 }
@@ -52,7 +61,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splash.setKeepOnScreenCondition { startViewModel.hasGroup.value == null }
+        splash.setKeepOnScreenCondition {
+            startViewModel.hasGroup.value == null || startViewModel.themeMode.value == null
+        }
         // Иконки статус-бара по умолчанию светлые (под кирпичной шапкой); экраны без шапки
         // переключают их сами — см. StatusBarIcons.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
@@ -60,7 +71,19 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleIntent(intent)
 
         setContent {
-            GasuTheme {
+            val themeMode by startViewModel.themeMode.collectAsStateWithLifecycle()
+            val dark = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                else -> isSystemInDarkTheme()
+            }
+            // Иконки навигационной панели — под выбранную тему, а не системную.
+            val view = LocalView.current
+            DisposableEffect(dark) {
+                WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !dark
+                onDispose { }
+            }
+            GasuTheme(darkTheme = dark) {
                 val hasGroup by startViewModel.hasGroup.collectAsStateWithLifecycle()
                 val openChanges by startViewModel.openChangesRequest.collectAsStateWithLifecycle()
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

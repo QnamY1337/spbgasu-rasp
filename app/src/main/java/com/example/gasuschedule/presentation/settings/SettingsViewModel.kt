@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.gasuschedule.domain.model.GeoPoint
 import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
+import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.AddressSearch
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
@@ -47,6 +48,7 @@ data class SettingsUiState(
     val lastSyncAt: Instant? = null,
     val refreshing: Boolean = false,
     val road: RoadSettings = RoadSettings(),
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
 
 private data class NotificationSettings(
@@ -95,7 +97,8 @@ class SettingsViewModel @Inject constructor(
             ::NotificationSettings,
         ),
         road,
-    ) { (group, lastSync, refreshing), (reminders, minutes, changes, homeworkHours), road ->
+        preferences.themeMode,
+    ) { (group, lastSync, refreshing), (reminders, minutes, changes, homeworkHours), road, theme ->
         SettingsUiState(
             group = group,
             remindersEnabled = reminders,
@@ -105,6 +108,7 @@ class SettingsViewModel @Inject constructor(
             lastSyncAt = lastSync,
             refreshing = refreshing,
             road = road,
+            themeMode = theme,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
@@ -121,6 +125,8 @@ class SettingsViewModel @Inject constructor(
         preferences.setHomeworkReminderHours(hours)
         reminders.requestReplan()
     }
+
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { preferences.setThemeMode(mode) }
 
     fun setChangeNotificationsEnabled(enabled: Boolean) = viewModelScope.launch {
         preferences.setChangeNotificationsEnabled(enabled)

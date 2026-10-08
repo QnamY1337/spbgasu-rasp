@@ -1,6 +1,7 @@
 package com.example.gasuschedule.domain.repository
 
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
@@ -42,6 +43,9 @@ interface UserPreferencesRepository {
     /** Уведомлять "Пора выходить" перед первой парой дня. */
     val leaveRemindersEnabled: Flow<Boolean>
     suspend fun setLeaveRemindersEnabled(enabled: Boolean)
+
+    val themeMode: Flow<ThemeMode>
+    suspend fun setThemeMode(mode: ThemeMode)
 
     companion object {
         const val DEFAULT_REMINDER_MINUTES = 15

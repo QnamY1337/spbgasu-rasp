@@ -104,7 +104,11 @@ internal fun RoadCard(
 
 /** Сегментный переключатель "Пешком | Транспорт" как в макете. */
 @Composable
-private fun ModeToggle(mode: TravelMode, onChange: (TravelMode) -> Unit) {
+private fun ModeToggle(mode: TravelMode, onChange: (TravelMode) -> Unit) =
+    SegmentedToggle(listOf(TravelMode.WALKING to "Пешком", TravelMode.TRANSIT to "Транспорт"), mode, onChange)
+
+@Composable
+internal fun <T> SegmentedToggle(options: List<Pair<T, String>>, selected: T, onChange: (T) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Row(
         Modifier
@@ -112,21 +116,21 @@ private fun ModeToggle(mode: TravelMode, onChange: (TravelMode) -> Unit) {
             .background(scheme.background, RoundedCornerShape(12.dp))
             .padding(4.dp),
     ) {
-        listOf(TravelMode.WALKING to "Пешком", TravelMode.TRANSIT to "Транспорт").forEach { (m, title) ->
-            val selected = m == mode
+        options.forEach { (value, title) ->
+            val isSelected = value == selected
             Box(
                 Modifier
                     .weight(1f)
-                    .background(if (selected) scheme.surface else scheme.background, RoundedCornerShape(10.dp))
-                    .clickable { onChange(m) }
+                    .background(if (isSelected) scheme.surface else scheme.background, RoundedCornerShape(10.dp))
+                    .clickable { onChange(value) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     title,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isSelected) scheme.onSurface else scheme.onSurfaceVariant,
                 )
             }
         }

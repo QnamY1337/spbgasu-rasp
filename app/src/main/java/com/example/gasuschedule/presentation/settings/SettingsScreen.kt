@@ -61,6 +61,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.gasuschedule.BuildConfig
+import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.common.StatusBarIcons
@@ -136,6 +137,7 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
         onLeaveBuffer = { viewModel.setLeaveBuffer(it) },
         onLeaveReminders = { viewModel.setLeaveReminders(it) },
         onHomeworkHours = { viewModel.setHomeworkReminderHours(it) },
+        onThemeMode = { viewModel.setThemeMode(it) },
     )
 
     if (showHomeDialog) {
@@ -209,6 +211,7 @@ fun SettingsScreen(
     onLeaveBuffer: (Int) -> Unit = {},
     onLeaveReminders: (Boolean) -> Unit = {},
     onHomeworkHours: (Int) -> Unit = {},
+    onThemeMode: (ThemeMode) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Scaffold(
@@ -236,6 +239,21 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = onChangeGroup) { Text("Изменить", fontWeight = FontWeight.SemiBold) }
+                }
+            }
+
+            SectionTitle("ОФОРМЛЕНИЕ")
+            SettingsCard {
+                Column(Modifier.padding(12.dp)) {
+                    SegmentedToggle(
+                        options = listOf(
+                            ThemeMode.SYSTEM to "Системная",
+                            ThemeMode.LIGHT to "Светлая",
+                            ThemeMode.DARK to "Тёмная",
+                        ),
+                        selected = state.themeMode,
+                        onChange = onThemeMode,
+                    )
                 }
             }
 
