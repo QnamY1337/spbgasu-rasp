@@ -25,8 +25,8 @@ android {
         applicationId = "com.example.gasuschedule"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.0.2"
+        versionCode = 5
+        versionName = "1.1"
     }
 
     // Ключ релиза — вне репозитория; путь и пароли в keystore.properties (не в git).
