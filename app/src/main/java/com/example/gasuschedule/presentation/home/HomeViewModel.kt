@@ -36,10 +36,15 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
+
+/** День в полоске недели в шапке главной. */
+data class HomeWeekDay(val date: LocalDate, val lessons: Int)
 
 /** Дорога к ближайшей первой паре дня. */
 data class Commute(val lesson: Lesson, val leave: LeaveEstimate)
@@ -67,6 +72,8 @@ data class HomeUiState(
     /** Погода на сегодня; null — не загрузилась (блок тогда не показываем). */
     val weather: DayWeather? = null,
     val refreshing: Boolean = false,
+    /** Пн–Сб недели для полоски в шапке (в воскресенье — следующая неделя) и число пар в каждый день. */
+    val weekDays: List<HomeWeekDay> = emptyList(),
 ) {
     val today: LocalDate get() = now.toLocalDate()
 }
@@ -97,8 +104,9 @@ class HomeViewModel @Inject constructor(
 
     private val data = preferences.groupName.filterNotNull().flatMapLatest { group ->
         val today = LocalDate.now(clock)
+        // С понедельника — чтобы в полоске недели были и прошедшие дни.
         combine(
-            repository.observeLessons(group, today, today.plusDays(LOOKAHEAD_DAYS)),
+            repository.observeLessons(group, weekMonday(today), today.plusDays(LOOKAHEAD_DAYS)),
             repository.observeWeeks(group),
         ) { lessons, weeks -> Triple(group, lessons, weeks) }
     }
@@ -130,6 +138,8 @@ class HomeViewModel @Inject constructor(
             refreshing = refreshing,
             weather = weather,
             homework = HomeworkPlanning.byLesson(tasks, lessons),
+            weekDays = (0L..5L).map { weekMonday(now.toLocalDate()).plusDays(it) }
+                .map { HomeWeekDay(it, byDate[it].orEmpty().size) },
             urgentHomework = tasks.filter { HomeworkPlanning.group(it, now.toLocalDate()) == HomeworkGroup.URGENT }
                 .sortedWith(compareBy(nullsLast()) { it.dueDate }),
         )
@@ -167,6 +177,11 @@ class HomeViewModel @Inject constructor(
 
         /** Через сколько после конца последней пары главная переключается на следующий день. */
         val SWITCH_AFTER_LAST_LESSON: Duration = Duration.ofMinutes(20)
+
+        /** Понедельник недели для полоски в шапке; в воскресенье — уже следующей недели. */
+        fun weekMonday(today: LocalDate): LocalDate =
+            (if (today.dayOfWeek == DayOfWeek.SUNDAY) today.plusDays(1) else today)
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
         /** Сегодняшние пары были, но закончились (с запасом [SWITCH_AFTER_LAST_LESSON]). */
         fun todayFinished(byDate: Map<LocalDate, List<Lesson>>, now: LocalDateTime): Boolean {

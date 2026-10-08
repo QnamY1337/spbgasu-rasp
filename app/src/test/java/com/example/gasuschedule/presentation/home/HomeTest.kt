@@ -104,4 +104,26 @@ class HomeTest {
         assertEquals(LocalTime.of(7, 35), leave.route.recommendedLeaveTime)
         assertTrue(repo.fetchCount == 0)
     }
+
+    @Test
+    fun `шапка - что сейчас с парами и неделя с понедельника`() {
+        fun state(now: java.time.LocalDateTime): HomeUiState {
+            val byDate = all.groupBy { it.date }
+            val shown = HomeViewModel.shownDate(byDate, now)
+            return HomeUiState(
+                now = now,
+                shownDate = shown,
+                todayFinished = HomeViewModel.todayFinished(byDate, now),
+                lessons = shown?.let { byDate[it] }.orEmpty(),
+            )
+        }
+        assertEquals("Сегодня 3 пары, первая в 09:00", headerTitle(state(d(28).atTime(8, 0))))
+        assertEquals("Сегодня 3 пары · идёт 2-я", headerTitle(state(d(28).atTime(11, 0))))
+        assertEquals("Сегодня 3 пары · дальше 3-я в 12:30", headerTitle(state(d(28).atTime(12, 20))))
+        assertEquals("На сегодня всё · дальше завтра в 10:45", headerTitle(state(d(28).atTime(20, 0))))
+        assertEquals("Сегодня пар нет · дальше пн в 09:00", headerTitle(state(d(26).atTime(12, 0))))
+
+        assertEquals(d(28), HomeViewModel.weekMonday(d(1, 10)))
+        assertEquals("в воскресенье — уже следующая неделя", d(28), HomeViewModel.weekMonday(d(27)))
+    }
 }

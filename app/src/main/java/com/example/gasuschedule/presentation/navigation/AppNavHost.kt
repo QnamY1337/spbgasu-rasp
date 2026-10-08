@@ -69,6 +69,7 @@ import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.presentation.home.HomeRoute
 import com.example.gasuschedule.presentation.homework.HomeworkRoute
 import com.example.gasuschedule.presentation.onboarding.OnboardingRoute
+import com.example.gasuschedule.presentation.schedule.ScheduleDayRequest
 import com.example.gasuschedule.presentation.schedule.ScheduleRoute
 import com.example.gasuschedule.presentation.settings.SettingsRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -179,6 +180,10 @@ fun AppNavHost(hasGroup: Boolean, openChangesRequest: Int) {
                 HomeRoute(
                     onOpenSettings = { nav.navigateToTab(Tab.SETTINGS) },
                     onOpenHomework = { nav.navigateToTab(Tab.HOMEWORK) },
+                    onOpenDay = { date ->
+                        ScheduleDayRequest.open(date)
+                        nav.navigateToTab(Tab.SCHEDULE)
+                    },
                 )
             }
             composable<ScheduleDestination> {

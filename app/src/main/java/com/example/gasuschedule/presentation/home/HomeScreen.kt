@@ -37,6 +37,11 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.example.gasuschedule.domain.model.WeekParity
+import com.example.gasuschedule.domain.model.ScheduleWeek
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import com.example.gasuschedule.domain.model.Lesson
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
@@ -88,6 +93,7 @@ import kotlin.math.roundToInt
 fun HomeRoute(
     onOpenSettings: () -> Unit,
     onOpenHomework: () -> Unit = {},
+    onOpenDay: (LocalDate) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     StatusBarIcons(onBrickHeader = true)
@@ -96,7 +102,7 @@ fun HomeRoute(
     LaunchedEffect(Unit) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
 
     CompositionLocalProvider(LocalLessonMenu provides { lesson, expanded, dismiss -> LessonHomeworkMenu(lesson, expanded, dismiss) }) {
-        HomeScreen(state, snackbar, onRefresh = { viewModel.refresh() }, onOpenSettings = onOpenSettings, onOpenHomework = onOpenHomework)
+        HomeScreen(state, snackbar, onRefresh = { viewModel.refresh() }, onOpenSettings = onOpenSettings, onOpenHomework = onOpenHomework, onOpenDay = onOpenDay)
     }
 }
 
@@ -108,6 +114,7 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHomework: () -> Unit = {},
+    onOpenDay: (LocalDate) -> Unit = {},
 ) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -125,7 +132,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .nestedScroll(scrollConnection),
         ) {
-            Header(state, collapse)
+            Header(state, collapse, onOpenDay)
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = onRefresh,
@@ -253,7 +260,7 @@ private fun TimelineRow(
 }
 
 @Composable
-private fun Header(state: HomeUiState, collapse: HeaderCollapse) {
+private fun Header(state: HomeUiState, collapse: HeaderCollapse, onOpenDay: (LocalDate) -> Unit) {
     val colors = GasuTheme.colors
     // Кирпичная полоса под статус-баром остаётся всегда; содержимое под ней сжимается и тает.
     Column(
@@ -275,73 +282,114 @@ private fun Header(state: HomeUiState, collapse: HeaderCollapse) {
                     }
                 }
                 .graphicsLayer { alpha = 1f - collapse.fraction }
-                .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 22.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp),
         ) {
-            HeaderContent(state)
+            HeaderContent(state, onOpenDay)
         }
     }
 }
 
+/**
+ * Шапка: что сейчас с парами одной строкой, справа неделя; ниже — Пн–Сб с точками по числу пар.
+ * Тап по дню открывает его в "Расписании".
+ */
 @Composable
-private fun HeaderContent(state: HomeUiState) {
+private fun HeaderContent(state: HomeUiState, onOpenDay: (LocalDate) -> Unit) {
     val colors = GasuTheme.colors
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("СПБГАСУ", style = MaterialTheme.typography.labelMedium, color = colors.onHeaderMuted, modifier = Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+            Text(
+                headerTitle(state),
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
+                color = colors.onHeader,
+                maxLines = 2,
+                modifier = Modifier.weight(1f),
+            )
             state.week?.let {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = colors.onHeader.copy(alpha = 0.16f),
-                    border = BorderStroke(1.dp, colors.onHeader.copy(alpha = 0.3f)),
-                ) {
-                    Text(weekPill(it), style = MonoStyles.label, color = colors.onHeader, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(shortWeek(it), style = MonoStyles.label, color = colors.onHeaderMuted, maxLines = 1)
+            }
+        }
+        if (state.weekDays.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                state.weekDays.forEach { day ->
+                    WeekDayChip(
+                        day = day,
+                        today = day.date == state.today,
+                        next = day.date == state.shownDate && day.date != state.today,
+                        past = day.date.isBefore(state.today),
+                        onClick = { onOpenDay(day.date) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Text(dayTitle(state.today).uppercase(), style = MonoStyles.label, color = colors.onHeaderMuted)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            headline(state),
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
-            color = colors.onHeader,
-        )
-        val chips = buildList {
-            if (state.shownDate == state.today) state.lessons.lastOrNull()?.let { add("Заканчиваем в ${it.endTime}") }
-        }
-        if (chips.isNotEmpty() || state.group != null) {
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                state.group?.let { HeaderChip(it, mono = true) }
-                chips.forEach { HeaderChip(it) }
+    }
+}
+
+@Composable
+private fun WeekDayChip(day: HomeWeekDay, today: Boolean, next: Boolean, past: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val colors = GasuTheme.colors
+    val shape = RoundedCornerShape(12.dp)
+    val fg = when {
+        today -> colors.header
+        past -> colors.onHeader.copy(alpha = 0.6f)
+        else -> colors.onHeader
+    }
+    Column(
+        modifier
+            .clip(shape)
+            .background(if (today) colors.onHeader else colors.onHeader.copy(alpha = 0.1f))
+            .then(if (next) Modifier.border(1.5.dp, colors.onHeader.copy(alpha = 0.7f), shape) else Modifier)
+            .clickable(onClickLabel = "Открыть день", onClick = onClick)
+            .padding(vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(shortDayName(day.date), style = MonoStyles.caption, color = fg)
+        Text(day.date.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = fg)
+        Row(Modifier.padding(top = 3.dp).height(5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            repeat(day.lessons.coerceAtMost(5)) {
+                Box(
+                    Modifier
+                        .size(5.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(if (today) MaterialTheme.colorScheme.primary else fg.copy(alpha = 0.55f)),
+                )
             }
         }
     }
 }
 
-@Composable
-private fun HeaderChip(text: String, mono: Boolean = false) {
-    val colors = GasuTheme.colors
-    Surface(shape = RoundedCornerShape(8.dp), color = colors.onHeader.copy(alpha = 0.16f)) {
-        Text(
-            text,
-            style = if (mono) MonoStyles.label.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.bodySmall,
-            color = colors.onHeader,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-        )
-    }
-}
+/** "ЗН · НЕД. 6". */
+private fun shortWeek(week: ScheduleWeek): String = when (week.parity) {
+    WeekParity.NUMERATOR -> "ЧС · "
+    WeekParity.DENOMINATOR -> "ЗН · "
+    WeekParity.EVERY -> ""
+} + "НЕД. ${week.number}"
 
-/** "Сегодня 3 пары, первая в 10:00"; в выходной и после пар — про ближайший день. */
-private fun headline(state: HomeUiState): String {
+/**
+ * "Сегодня 4 пары · идёт 2-я", "Сегодня 4 пары, первая в 09:00", "На сегодня всё · дальше сб в 12:30".
+ */
+internal fun headerTitle(state: HomeUiState): String {
     val date = state.shownDate ?: return "В ближайшие две недели пар нет"
-    val first = state.lessons.firstOrNull() ?: return "Пар нет"
-    val count = lessonsCount(state.lessons.size)
-    return when {
-        date == state.today -> "Сегодня $count, первая в ${first.startTime}"
-        date == state.today.plusDays(1) -> "Завтра $count, первая в ${first.startTime}"
-        else -> "${dayTitle(date)}: $count, первая в ${first.startTime}"
+    val lessons = state.lessons
+    val first = lessons.firstOrNull() ?: return "Пар нет"
+    if (date == state.today) {
+        val count = lessonsCount(lessons.size)
+        val time = state.now.toLocalTime()
+        val current = lessons.firstOrNull { !time.isBefore(it.startTime) && time.isBefore(it.endTime) }
+        val upcoming = lessons.firstOrNull { time.isBefore(it.startTime) }
+        return when {
+            current != null -> "Сегодня $count · идёт ${current.lessonNumber}-я"
+            upcoming == first -> "Сегодня $count, первая в ${first.startTime}"
+            upcoming != null -> "Сегодня $count · дальше ${upcoming.lessonNumber}-я в ${upcoming.startTime}"
+            else -> "Сегодня $count"
+        }
     }
+    val day = if (date == state.today.plusDays(1)) "завтра" else shortDayName(date).lowercase()
+    val prefix = if (state.todayFinished) "На сегодня всё" else "Сегодня пар нет"
+    return "$prefix · дальше $day в ${first.startTime}"
 }
 
 /** Погода на сегодня: сейчас, днём/ночью, осадки и подсказка про зонт. */

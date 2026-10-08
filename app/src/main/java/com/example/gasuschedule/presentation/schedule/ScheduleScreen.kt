@@ -108,6 +108,15 @@ fun ScheduleRoute(
         }
     }
 
+    val requestedDay by ScheduleDayRequest.date.collectAsStateWithLifecycle()
+    LaunchedEffect(requestedDay) {
+        requestedDay?.let {
+            viewModel.selectDate(it)
+            tab = TAB_TODAY
+            ScheduleDayRequest.consume()
+        }
+    }
+
     CompositionLocalProvider(LocalLessonMenu provides { lesson, expanded, dismiss -> LessonHomeworkMenu(lesson, expanded, dismiss) }) {
         ScheduleScreen(
             state = state,
