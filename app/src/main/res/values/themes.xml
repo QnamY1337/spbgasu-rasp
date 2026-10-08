@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Сплэш в цвет шапки, дальше — экран на фоне из Compose-темы. -->
+    <!-- Сплэш в цвет шапки с фасадом из иконки приложения, дальше — экран на фоне из Compose-темы. -->
     <style name="Theme.GasuSchedule.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/brand_header</item>
-        <item name="windowSplashScreenAnimatedIcon">@android:drawable/sym_def_app_icon</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.GasuSchedule</item>
     </style>
 
