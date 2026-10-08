@@ -326,17 +326,22 @@ private fun BreakRow(gap: LessonBreak, now: LocalTime?, modifier: Modifier = Mod
             border = BorderStroke(1.dp, if (active) scheme.primary else scheme.outlineVariant),
         ) {
             Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Название не переносим по слогам: на крупном шрифте лучше многоточие.
                 Text(
                     gap.title,
                     style = MaterialTheme.typography.titleSmall,
                     color = if (active) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                Spacer(Modifier.width(8.dp))
                 Text(
                     "${gap.from}–${gap.to} · ${breakLength(gap.minutes)}",
-                    style = MonoStyles.label,
+                    style = MaterialTheme.typography.bodySmall,
                     color = if (active) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
                     maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
