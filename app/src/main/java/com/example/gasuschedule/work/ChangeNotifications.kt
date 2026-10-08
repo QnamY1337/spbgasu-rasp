@@ -46,7 +46,7 @@ object ChangeNotifications {
         if (content.overflow > 0) inbox.setSummaryText("и ещё ${content.overflow}")
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notif_change)
             .setContentTitle(content.title)
             .setContentText(content.lines.first())
             .setStyle(inbox)

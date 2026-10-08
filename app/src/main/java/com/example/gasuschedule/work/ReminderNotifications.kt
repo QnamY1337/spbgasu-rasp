@@ -34,6 +34,13 @@ object ReminderNotifications {
         return permitted && NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
+    /** Ключи напоминаний задаёт ScheduleNotificationsUseCase: "hw|…", "leave|…", остальное — пары. */
+    private fun iconFor(key: String): Int = when {
+        key.startsWith("hw|") -> R.drawable.ic_notif_homework
+        key.startsWith("leave|") -> R.drawable.ic_notif_leave
+        else -> R.drawable.ic_notification
+    }
+
     fun show(context: Context, key: String, title: String, text: String) {
         if (!canNotify(context)) return
         val open = PendingIntent.getActivity(
@@ -43,7 +50,7 @@ object ReminderNotifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(iconFor(key))
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
