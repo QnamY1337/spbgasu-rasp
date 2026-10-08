@@ -1,6 +1,8 @@
 package com.example.gasuschedule.presentation.widget
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -14,6 +16,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.action.actionStartActivity
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
@@ -23,8 +26,6 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
@@ -33,6 +34,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.example.gasuschedule.R
+import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase
 import com.example.gasuschedule.domain.usecase.GetNextLessonUseCase
 import com.example.gasuschedule.domain.usecase.NextLesson
@@ -41,6 +43,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.first
 import java.time.Clock
 import java.time.LocalDateTime
 
@@ -50,11 +53,15 @@ import java.time.LocalDateTime
 interface WidgetEntryPoint {
     fun getNextLesson(): GetNextLessonUseCase
     fun estimateLeaveTime(): EstimateLeaveTimeUseCase
+    fun preferences(): UserPreferencesRepository
     fun clock(): Clock
     fun refresher(): WidgetRefresher
 }
 
-/** Виджет "Ближайшая пара" по макету. Данные — только из локальной базы, без сети. */
+/**
+ * Виджет "Дорога" (4×1): во сколько выходить к первой паре дня и кнопка маршрута в Яндекс.Картах,
+ * в остальное время — ближайшая пара. Данные — только из локальной базы, без сети.
+ */
 class NextLessonWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -68,20 +75,20 @@ class NextLessonWidget : GlanceAppWidget() {
         val leave = (next as? NextLesson.Found)
             ?.takeIf { it.firstOfDay && !it.ongoing }
             ?.let { deps.estimateLeaveTime()(it.lesson) }
-        val model = widgetModel(next, now, leave)
-        provideContent { WidgetBody(model) }
+        val home = deps.preferences().home.first()?.point
+        val model = widgetModel(next, now, leave, home)
+        provideContent { RoadWidgetBody(model) }
     }
 
-    /** Превью в списке виджетов лаунчера (Android 15+) — пример пары из макета. */
+    /** Превью в списке виджетов лаунчера (Android 15+). */
     override suspend fun providePreview(context: Context, widgetCategory: Int) {
         provideContent {
-            WidgetBody(
+            RoadWidgetBody(
                 WidgetModel(
-                    label = "БЛИЖАЙШАЯ ПАРА",
-                    corner = "10:45",
-                    title = "История России",
-                    subtitle = "Актовый зал/Г · Гурьев Е.П.",
-                    chip = "Выйти в 10:11",
+                    label = "К 09:00 · ФИЗИКА · 316/Г",
+                    title = "Выйти в 08:10",
+                    subtitle = "≈35 мин на транспорте · через 40 мин",
+                    routeQuery = "",
                 ),
             )
         }
@@ -92,59 +99,55 @@ class NextLessonWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = NextLessonWidget()
 }
 
-private val OnBrick = ColorProvider(day = Color.White, night = Color(0xFFF4ECE9))
-private val OnBrickMuted = ColorProvider(day = Color.White.copy(alpha = 0.72f), night = Color(0xFFF4ECE9).copy(alpha = 0.66f))
+internal val OnTint = ColorProvider(day = Color(0xFF5E2012), night = Color(0xFFF6C3B3))
+internal val OnTintMuted = ColorProvider(day = Color(0xFF5E2012).copy(alpha = 0.8f), night = Color(0xFFF6C3B3).copy(alpha = 0.78f))
+internal val OnBrick = ColorProvider(day = Color.White, night = Color(0xFFF4ECE9))
+internal val OnBrickMuted = ColorProvider(day = Color.White.copy(alpha = 0.75f), night = Color(0xFFF4ECE9).copy(alpha = 0.7f))
 
 @Composable
-private fun WidgetBody(model: WidgetModel) {
-    Column(
+private fun RoadWidgetBody(model: WidgetModel) {
+    Row(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ImageProvider(R.drawable.widget_background))
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .background(ImageProvider(R.drawable.widget_tint_background))
+            .padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
             .clickable(actionStartActivity<MainActivity>()),
-        // Высота виджета задаётся сеткой лаунчера — центрируем, чтобы не было пустой полосы снизу.
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                provider = ImageProvider(R.drawable.ic_notification),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(OnBrick),
-                modifier = GlanceModifier.size(16.dp),
-            )
-            Spacer(GlanceModifier.width(8.dp))
+        Column(modifier = GlanceModifier.defaultWeight()) {
             Text(
                 model.label,
-                style = TextStyle(color = OnBrickMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace),
+                style = TextStyle(color = OnTint, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace),
                 maxLines = 1,
-                modifier = GlanceModifier.defaultWeight(),
             )
-            model.corner?.let {
-                Text(it, style = TextStyle(color = OnBrickMuted, fontSize = 13.sp, fontFamily = FontFamily.Monospace))
+            Text(
+                model.title,
+                style = TextStyle(color = OnTint, fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                maxLines = 1,
+            )
+            model.subtitle?.let {
+                Text(it, style = TextStyle(color = OnTintMuted, fontSize = 12.sp), maxLines = 1)
             }
         }
-        Spacer(GlanceModifier.height(10.dp))
-        Text(
-            model.title,
-            style = TextStyle(color = OnBrick, fontSize = 20.sp, fontWeight = FontWeight.Bold),
-            maxLines = 2,
-        )
-        model.subtitle?.let {
-            Spacer(GlanceModifier.height(2.dp))
-            Text(it, style = TextStyle(color = OnBrickMuted, fontSize = 13.sp), maxLines = 1)
-        }
-        model.chip?.let {
-            Spacer(GlanceModifier.height(10.dp))
+        model.routeQuery?.let { query ->
+            Spacer(GlanceModifier.width(10.dp))
             Box(
                 modifier = GlanceModifier
-                    .background(ImageProvider(R.drawable.widget_chip))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .size(56.dp)
+                    .background(ImageProvider(R.drawable.widget_route_button))
+                    .clickable(
+                        actionStartActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://yandex.ru/maps/?$query"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    it,
-                    style = TextStyle(color = OnBrick, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace),
-                    maxLines = 1,
+                Image(
+                    provider = ImageProvider(R.drawable.ic_route),
+                    contentDescription = "Маршрут в Яндекс.Картах",
+                    colorFilter = ColorFilter.tint(OnBrick),
+                    modifier = GlanceModifier.size(26.dp),
                 )
             }
         }

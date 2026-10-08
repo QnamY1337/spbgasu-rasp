@@ -97,12 +97,19 @@ class RouteTest {
         val next = GetNextLessonUseCase.pick(lessons, now) as NextLesson.Found
         assertTrue(next.firstOfDay)
         val leave = EstimateLeaveTimeUseCase.estimate(first, farHome, TravelMode.TRANSIT, 10)
-        assertEquals("Выйти в 09:20", widgetModel(next, now, leave).chip)
-        assertEquals("2 пара · 10:45–12:15", widgetModel(next, now, LeaveEstimate.NoHome).chip)
+        with(widgetModel(next, now, leave, farHome.point)) {
+            assertEquals("Выйти в 09:20", title)
+            assertTrue(label.startsWith("ЗАВТРА К 10:45"))
+            assertTrue(routeQuery!!.startsWith("rtext=${farHome.point.latitude},"))
+        }
+        with(widgetModel(next, now, LeaveEstimate.NoHome)) {
+            assertEquals("ЗАВТРА · 10:45", label)
+            assertNull(routeQuery)
+        }
 
         val second = GetNextLessonUseCase.pick(lessons, d(29).atTime(12, 20)) as NextLesson.Found
         assertFalse(second.firstOfDay)
-        assertEquals("3 пара · 12:30–14:00", widgetModel(second, d(29).atTime(12, 20), leave).chip)
+        assertEquals("БЛИЖАЙШАЯ ПАРА · 12:30", widgetModel(second, d(29).atTime(12, 20), leave).label)
     }
 
     @Test

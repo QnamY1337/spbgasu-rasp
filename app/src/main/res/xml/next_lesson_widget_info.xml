@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- updatePeriodMillis = 30 минут — подстраховка; точные обновления на границах пар ставит WidgetRefresher. -->
+<!-- Виджет "Дорога" 4×1. updatePeriodMillis = 30 минут — подстраховка; точные обновления на границах пар ставит WidgetRefresher. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="250dp"
-    android:minHeight="110dp"
+    android:minHeight="80dp"
     android:minResizeWidth="180dp"
-    android:minResizeHeight="100dp"
+    android:minResizeHeight="70dp"
     android:targetCellWidth="4"
-    android:targetCellHeight="2"
+    android:targetCellHeight="1"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

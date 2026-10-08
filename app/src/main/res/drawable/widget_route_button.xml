@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Квадратная кнопка маршрута в виджете "Дорога". -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/brand_header" />
+    <corners android:radius="18dp" />
+</shape>

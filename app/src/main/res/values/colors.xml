@@ -3,4 +3,5 @@
     <color name="brand_header">#96331A</color>
     <color name="background">#F3F3F4</color>
     <color name="brand_accent">#C14524</color>
+    <color name="widget_tint">#F6DED6</color>
 </resources>

@@ -40,7 +40,7 @@ class WidgetTest {
         assertEquals(at(d(28), 12, 15), next.validUntil)
 
         val model = widgetModel(next, at(d(28), 11, 0))
-        assertEquals(WidgetModel("ИДЁТ СЕЙЧАС", "до 12:15", "История России", "Актовый зал/Г · Гурьев Е.П.", "2 пара · 10:45–12:15"), model)
+        assertEquals(WidgetModel("ИДЁТ СЕЙЧАС · ДО 12:15", "История России", "Актовый зал/Г · Гурьев Е.П."), model)
     }
 
     @Test
@@ -50,8 +50,7 @@ class WidgetTest {
         assertEquals(false, next.ongoing)
         assertEquals(at(d(28), 12, 30), next.validUntil)
         with(widgetModel(next, at(d(28), 12, 20))) {
-            assertEquals("БЛИЖАЙШАЯ ПАРА", label)
-            assertEquals("12:30", corner)
+            assertEquals("БЛИЖАЙШАЯ ПАРА · 12:30", label)
             assertEquals("Философия", title)
         }
     }
@@ -64,10 +63,10 @@ class WidgetTest {
     @Test
     fun `вечером - следующий учебный день, через день пропускаем`() {
         with(widgetModel(pick(at(d(28), 20)), at(d(28), 20))) {
-            assertEquals("СР 30.09", label)
+            assertEquals("СР 30.09 · 10:45", label)
             assertEquals("Высшая математика", title)
         }
-        assertEquals("ЗАВТРА", widgetModel(pick(at(d(29), 20)), at(d(29), 20)).label)
+        assertEquals("ЗАВТРА · 10:45", widgetModel(pick(at(d(29), 20)), at(d(29), 20)).label)
     }
 
     @Test
@@ -91,7 +90,7 @@ class WidgetTest {
 
         val noGroup = GetNextLessonUseCase(FakeScheduleRepository(), FakePreferences(group = null), clockAt(d(28)))()
         assertSame(NextLesson.NoGroup, noGroup)
-        assertNull(widgetModel(noGroup, at(d(28), 9)).chip)
+        assertNull(widgetModel(noGroup, at(d(28), 9)).routeQuery)
     }
 
     @Test
@@ -107,5 +106,36 @@ class WidgetTest {
     fun `обновление виджета - сразу после границы, не чаще раза в минуту`() {
         assertEquals(Duration.ofMinutes(15).plusSeconds(30), WidgetRefresher.refreshDelay(at(d(28), 12, 30), at(d(28), 12, 15)))
         assertEquals(Duration.ofMinutes(1), WidgetRefresher.refreshDelay(at(d(28), 12, 30), at(d(28), 12, 30)))
+    }
+
+    @Test
+    fun `отсчёт - минуты, часы, другой день и идущая пара`() {
+        with(countdownModel(pick(at(d(28), 12, 20)), at(d(28), 12, 20))) {
+            assertEquals("ЧЕРЕЗ", caption)
+            assertEquals("10", value)
+            assertEquals("мин", unit)
+            assertEquals("712/С · 12:30", subtitle)
+        }
+        with(countdownModel(pick(at(d(28), 8)), at(d(28), 8))) {
+            assertEquals("1:00", value)
+            assertEquals("ч", unit)
+        }
+        with(countdownModel(pick(at(d(28), 20)), at(d(28), 20))) {
+            assertEquals("СР 30.09", caption)
+            assertEquals("10:45", value)
+            assertNull(unit)
+        }
+        with(countdownModel(pick(at(d(28), 11, 0)), at(d(28), 11, 0))) {
+            assertEquals("ИДЁТ · ДО 12:15", caption)
+            assertEquals("Актовый зал/Г · ещё 75 мин", subtitle)
+            assertEquals(15f / 90f, progress!!, 0.001f)
+        }
+    }
+
+    @Test
+    fun `отсчёт обновляется раз в минуту близко к паре, иначе - за 6 часов до неё`() {
+        assertEquals(at(d(28), 11, 1), countdownRefreshAt(pick(at(d(28), 11, 0)), at(d(28), 11, 0)))
+        // Вечер понедельника, пара в среду в 10:45 — следующее обновление в среду в 4:45.
+        assertEquals(at(d(30), 4, 45), countdownRefreshAt(pick(at(d(28), 20)), at(d(28), 20)))
     }
 }
