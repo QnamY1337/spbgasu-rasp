@@ -126,4 +126,25 @@ class HomeTest {
         assertEquals(d(28), HomeViewModel.weekMonday(d(1, 10)))
         assertEquals("в воскресенье — уже следующая неделя", d(28), HomeViewModel.weekMonday(d(27)))
     }
+
+    @Test
+    fun `полоса погода и дорога - выйти в, пора выходить, дом не указан`() {
+        val first = tue.first()
+        val home = HomeLocation(GeoPoint(60.0514, 30.3325), "пр. Просвещения")
+        val leave = com.example.gasuschedule.domain.usecase.EstimateLeaveTimeUseCase.estimate(
+            first, home, com.example.gasuschedule.domain.model.TravelMode.TRANSIT, 10,
+        ) as LeaveEstimate.Estimated
+        val leaveAt = leave.route.recommendedLeaveTime
+        fun line(now: java.time.LocalDateTime, l: LeaveEstimate) =
+            roadLine(HomeUiState(now = now, commute = Commute(first, l)))!!
+
+        with(line(d(28).atTime(20, 0), leave)) {
+            assertEquals("Выйти в $leaveAt", main)
+            assertEquals("завтра к 10:45 · ${leave.route.travelMinutes} мин", sub)
+        }
+        assertTrue(line(d(29).atTime(leaveAt), leave).go)
+        assertEquals("Пора выходить", line(d(29).atTime(leaveAt.plusMinutes(5)), leave).main)
+        assertEquals("Укажите дом", line(d(28).atTime(20, 0), LeaveEstimate.NoHome).main)
+        assertNull(roadLine(HomeUiState(now = d(28).atTime(20, 0))))
+    }
 }

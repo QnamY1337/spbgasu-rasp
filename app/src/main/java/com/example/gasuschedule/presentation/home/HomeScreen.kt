@@ -37,6 +37,14 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.example.gasuschedule.R
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.Icons
 import com.example.gasuschedule.domain.model.WeekParity
 import com.example.gasuschedule.domain.model.ScheduleWeek
 import androidx.compose.ui.draw.clip
@@ -196,9 +204,8 @@ private fun HomeContent(
         contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        state.weather?.let { weather -> item { WeatherCard(weather, side) } }
-        state.commute?.let { commute ->
-            item { CommuteCard(commute, state, onOpenSettings, side) }
+        if (state.weather != null || state.commute != null) {
+            item { WeatherRoadStrip(state, onOpenSettings, side) }
         }
         if (state.urgentHomework.isNotEmpty()) {
             item { UrgentHomeworkCard(state, onOpenHomework, side) }
@@ -397,50 +404,6 @@ internal fun headerTitle(state: HomeUiState): String {
     return "$prefix · дальше $day в ${first.startTime}"
 }
 
-/** Погода на сегодня: сейчас, днём/ночью, осадки и подсказка про зонт. */
-@Composable
-private fun WeatherCard(weather: DayWeather, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = scheme.surface,
-        border = BorderStroke(1.dp, scheme.outlineVariant),
-    ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(weather.icon, style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.size(12.dp))
-            Text(
-                signedTemp(weather.tempC),
-                style = MonoStyles.time.copy(fontSize = 28.sp, lineHeight = 32.sp),
-                color = scheme.onSurface,
-            )
-            Spacer(Modifier.size(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(weather.condition, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "${signedTemp(weather.tempMin)}…${signedTemp(weather.tempMax)} · " +
-                        if (weather.place == WeatherPlace.HOME) "у дома" else "у вуза",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = scheme.onSurfaceVariant,
-                )
-                weather.precipitationChance?.let { chance ->
-                    Text(
-                        when {
-                            weather.umbrella -> "Осадки до $chance% — возьмите зонт"
-                            chance < 10 -> "Без осадков"
-                            else -> "Осадки до $chance%"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (weather.umbrella) scheme.primary else scheme.onSurfaceVariant,
-                        fontWeight = if (weather.umbrella) FontWeight.SemiBold else null,
-                    )
-                }
-            }
-        }
-    }
-}
-
 /** "+11°", "−3°", "0°" — со знаком, как в прогнозах. */
 internal fun signedTemp(t: Int): String = when {
     t > 0 -> "+$t°"
@@ -448,72 +411,126 @@ internal fun signedTemp(t: Int): String = when {
     else -> "0°"
 }
 
+/** Что показать в полосе "погода + дорога". */
+internal data class RoadLine(val main: String, val sub: String?, val go: Boolean = false)
+
+/**
+ * Дорога одной строкой: "Выйти в 11:40" + "сб к 12:30 · 35 мин"; когда пора — "Пора выходить".
+ * Без дорожки — погода словами.
+ */
+internal fun roadLine(state: HomeUiState): RoadLine? {
+    val commute = state.commute
+    if (commute == null) {
+        val w = state.weather ?: return null
+        val rain = w.precipitationChance?.takeIf { it >= 10 }?.let { "осадки до $it%" }
+        return RoadLine(w.condition, rain)
+    }
+    val l = commute.lesson
+    val day = when (l.date) {
+        state.today -> ""
+        state.today.plusDays(1) -> "завтра "
+        else -> shortDayName(l.date).lowercase() + " "
+    }
+    return when (val leave = commute.leave) {
+        LeaveEstimate.NoHome -> RoadLine("Укажите дом", "посчитаем время выхода")
+        is LeaveEstimate.UnknownBuilding -> RoadLine("Корпус не найден", "${day}к ${l.startTime} · ${l.room}")
+        is LeaveEstimate.Estimated -> {
+            val r = leave.route
+            val sub = "${day}к ${l.startTime} · ${r.travelMinutes} мин"
+            val leaveAt = l.date.atTime(r.recommendedLeaveTime)
+            if (!state.now.isBefore(leaveAt)) RoadLine("Пора выходить", sub, go = true)
+            else RoadLine("Выйти в ${r.recommendedLeaveTime}", sub)
+        }
+    }
+}
+
+/**
+ * Погода и дорога к первой паре одной полосой 56 dp: слева значок и температура (и "зонт"),
+ * за чертой время выхода, справа кнопка маршрута (или "+" — указать дом).
+ */
 @Composable
-private fun CommuteCard(commute: Commute, state: HomeUiState, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
+private fun WeatherRoadStrip(state: HomeUiState, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val context = LocalContext.current
-    val l = commute.lesson
-    // Пара сама видна в таймлайне ниже — здесь только дорога к ней.
-    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = scheme.primaryContainer) {
-        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp)) {
-            Text(
-                "ДОРОГА · ${dayLabel(l.date, state.today)} К ${l.startTime}",
-                style = MonoStyles.caption.copy(fontWeight = FontWeight.SemiBold),
-                color = scheme.onPrimaryContainer.copy(alpha = 0.8f),
-            )
-            Spacer(Modifier.height(4.dp))
-            when (val leave = commute.leave) {
-                LeaveEstimate.NoHome -> {
-                    Text(
-                        "Укажите адрес дома — посчитаем, во сколько выходить к первой паре.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = scheme.onPrimaryContainer,
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    TextButton(onClick = onOpenSettings, contentPadding = PaddingValues(0.dp)) {
-                        Text("Указать адрес", fontWeight = FontWeight.SemiBold)
+    val weather = state.weather
+    val line = roadLine(state) ?: return
+    val commute = state.commute
+    val route = (commute?.leave as? LeaveEstimate.Estimated)?.route
+    Surface(
+        modifier = modifier.fillMaxWidth().height(56.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = scheme.surface,
+        border = BorderStroke(1.dp, if (line.go) scheme.primary else scheme.outlineVariant),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 8.dp)) {
+            weather?.let { w ->
+                Row(Modifier.padding(start = 14.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(w.icon, fontSize = 18.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(signedTemp(w.tempC), style = MonoStyles.time.copy(fontSize = 16.sp), color = scheme.onSurface)
+                    if (w.umbrella) {
+                        Spacer(Modifier.width(6.dp))
+                        Text("зонт", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = scheme.primary)
                     }
                 }
-                is LeaveEstimate.UnknownBuilding -> Text(
-                    "Корпус первой пары не найден в справочнике — маршрут недоступен.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onPrimaryContainer,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                is LeaveEstimate.Estimated -> {
-                    val r = leave.route
-                    val leaveAt = l.date.atTime(r.recommendedLeaveTime)
-                    val how = if (r.mode == TravelMode.WALKING) "пешком" else "на транспорте"
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    "Выйти в ${r.recommendedLeaveTime}",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
-                                    color = scheme.onPrimaryContainer,
-                                )
-                                leaveHint(state.now, leaveAt)?.let {
-                                    Text(
-                                        "  $it",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = scheme.primary,
-                                        modifier = Modifier.padding(bottom = 3.dp),
-                                    )
-                                }
-                            }
-                            Text(
-                                "≈${r.travelMinutes} мин $how · ${r.building.name}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = scheme.onPrimaryContainer.copy(alpha = 0.85f),
-                            )
-                        }
-                        TextButton(onClick = { YandexMaps.openRoute(context, state.home?.point, r.building.location, r.mode) }) {
-                            Text("Маршрут", fontWeight = FontWeight.SemiBold, color = scheme.primary)
-                        }
-                    }
+                if (commute != null) {
+                    Box(Modifier.width(1.dp).height(32.dp).background(scheme.outlineVariant))
                 }
             }
+            Row(
+                Modifier.weight(1f).padding(start = if (weather == null || commute != null) 12.dp else 0.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    line.main,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = when {
+                        line.go -> scheme.primary
+                        commute?.leave is LeaveEstimate.Estimated -> scheme.onSurface
+                        commute == null -> scheme.onSurface
+                        else -> scheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    softWrap = false,
+                )
+                line.sub?.let {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            when {
+                route != null -> StripButton(
+                    accent = line.go,
+                    label = "Маршрут в Яндекс.Картах",
+                    onClick = { YandexMaps.openRoute(context, state.home?.point, route.building.location, route.mode) },
+                ) { tint -> Icon(painterResource(R.drawable.ic_route), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp)) }
+                commute?.leave == LeaveEstimate.NoHome -> StripButton(
+                    accent = false,
+                    label = "Указать адрес дома",
+                    onClick = onOpenSettings,
+                ) { tint -> Icon(Icons.Default.Add, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StripButton(accent: Boolean, label: String, onClick: () -> Unit, icon: @Composable (Color) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (accent) scheme.primary else scheme.primaryContainer,
+        modifier = Modifier.size(40.dp).semantics { contentDescription = label },
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            icon(if (accent) scheme.onPrimary else scheme.onPrimaryContainer)
         }
     }
 }
