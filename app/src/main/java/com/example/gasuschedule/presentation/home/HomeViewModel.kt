@@ -9,6 +9,7 @@ import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleWeek
+import com.example.gasuschedule.domain.model.SubjectFilter
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
@@ -74,6 +75,8 @@ data class HomeUiState(
     val refreshing: Boolean = false,
     /** Пн–Сб недели для полоски в шапке (в воскресенье — следующая неделя) и число пар в каждый день. */
     val weekDays: List<HomeWeekDay> = emptyList(),
+    /** Отключённые в настройках предметы — их пары серые и не учитываются в дороге. */
+    val subjectFilter: SubjectFilter = SubjectFilter(),
 ) {
     val today: LocalDate get() = now.toLocalDate()
 }
@@ -117,9 +120,9 @@ class HomeViewModel @Inject constructor(
         data,
         road,
         now,
-        combine(refreshing, weatherRepository.weather, ::Pair),
+        combine(refreshing, weatherRepository.weather, preferences.subjectFilter, ::Triple),
         homework.observeAll(),
-    ) { (group, lessons, weeks), (home, mode, buffer), now, (refreshing, weather), tasks ->
+    ) { (group, lessons, weeks), (home, mode, buffer), now, (refreshing, weather, filter), tasks ->
         val byDate = lessons.groupBy { it.date }
         val shown = shownDate(byDate, now)
         HomeUiState(
@@ -130,7 +133,7 @@ class HomeViewModel @Inject constructor(
             week = weeks.firstOrNull { now.toLocalDate() in it.startDate..it.endDate },
             shownDate = shown,
             lessons = shown?.let { byDate[it] }.orEmpty(),
-            commute = nextFirstLesson(lessons, now)?.let {
+            commute = nextFirstLesson(filter.enabled(lessons), now)?.let {
                 Commute(it, EstimateLeaveTimeUseCase.estimate(it, home, mode, buffer))
             },
             home = home,
@@ -142,6 +145,7 @@ class HomeViewModel @Inject constructor(
                 .map { HomeWeekDay(it, byDate[it].orEmpty().size) },
             urgentHomework = tasks.filter { HomeworkPlanning.group(it, now.toLocalDate()) == HomeworkGroup.URGENT }
                 .sortedWith(compareBy(nullsLast()) { it.dueDate }),
+            subjectFilter = filter,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

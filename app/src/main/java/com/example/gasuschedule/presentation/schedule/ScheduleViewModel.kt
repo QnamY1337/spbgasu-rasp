@@ -6,6 +6,7 @@ import com.example.gasuschedule.domain.model.HomeworkItem
 import com.example.gasuschedule.domain.model.HomeworkPlanning
 import com.example.gasuschedule.domain.model.Lesson
 import com.example.gasuschedule.domain.model.ScheduleWeek
+import com.example.gasuschedule.domain.model.SubjectFilter
 import com.example.gasuschedule.domain.model.WeekSchedule
 import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ScheduleRepository
@@ -51,6 +52,8 @@ data class ScheduleUiState(
     val loaded: Boolean = false,
     /** Задания по парам, на которых их сдавать (id пары -> задания). */
     val homework: Map<String, List<HomeworkItem>> = emptyMap(),
+    /** Отключённые в настройках предметы — их пары серые. */
+    val subjectFilter: SubjectFilter = SubjectFilter(),
 ) {
     val today: LocalDate get() = now.toLocalDate()
     fun weekOf(date: LocalDate): ScheduleWeek? = weeks.firstOrNull { date in it.startDate..it.endDate }
@@ -93,8 +96,9 @@ class ScheduleViewModel @Inject constructor(
     private val week = selectedWeekStart.flatMapLatest { getWeek(it) }
 
     val state: StateFlow<ScheduleUiState> = combine(
-        semester, week, selectedDate, now, combine(refreshing, homework.observeAll(), ::Pair),
-    ) { (group, weeks, byDate), week, selected, now, (refreshing, tasks) ->
+        semester, week, selectedDate, now,
+        combine(refreshing, homework.observeAll(), preferences.subjectFilter, ::Triple),
+    ) { (group, weeks, byDate), week, selected, now, (refreshing, tasks, filter) ->
         ScheduleUiState(
             group = group,
             days = dayRange(weeks, now.toLocalDate()),
@@ -106,6 +110,7 @@ class ScheduleViewModel @Inject constructor(
             isRefreshing = refreshing,
             loaded = true,
             homework = HomeworkPlanning.byLesson(tasks, byDate.values.flatten()),
+            subjectFilter = filter,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScheduleUiState())
 

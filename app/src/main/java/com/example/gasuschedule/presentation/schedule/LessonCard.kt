@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -59,29 +60,33 @@ fun LessonCard(
     homework: List<HomeworkItem> = emptyList(),
     /** false — время вынесено наружу (таймлайн на главной), в карточке остаётся только содержимое. */
     showTime: Boolean = true,
+    /** Пара отключена в настройках — серая, как прошедшая, и чуть прозрачнее. */
+    disabled: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val faint = GasuTheme.colors.textFaint
     val highlighted = timing == LessonTiming.CURRENT || timing == LessonTiming.NEXT
+    // Отключённая пара не бывает "сейчас"/"далее" (см. lessonTimings) — красим как прошедшую.
+    val faded = disabled || timing == LessonTiming.PAST
 
-    val container = when (timing) {
-        LessonTiming.CURRENT -> scheme.primaryContainer
-        LessonTiming.PAST -> scheme.surface.copy(alpha = 0.55f)
+    val container = when {
+        timing == LessonTiming.CURRENT -> scheme.primaryContainer
+        faded -> scheme.surface.copy(alpha = 0.55f)
         else -> scheme.surface
     }
     val border = when (timing) {
         LessonTiming.CURRENT, LessonTiming.NEXT -> BorderStroke(1.dp, scheme.primary)
         else -> BorderStroke(1.dp, scheme.outlineVariant)
     }
-    val primaryText = if (timing == LessonTiming.PAST) faint else scheme.onSurface
-    val secondaryText = when (timing) {
-        LessonTiming.PAST -> faint
-        LessonTiming.CURRENT -> scheme.onPrimaryContainer
+    val primaryText = if (faded) faint else scheme.onSurface
+    val secondaryText = when {
+        faded -> faint
+        timing == LessonTiming.CURRENT -> scheme.onPrimaryContainer
         else -> scheme.onSurfaceVariant
     }
     val accentBar = scheme.primary
 
-    Box(modifier.padding(top = if (highlighted) 10.dp else 0.dp)) {
+    Box(modifier.padding(top = if (highlighted) 10.dp else 0.dp).alpha(if (disabled) 0.6f else 1f)) {
         val menu = LocalLessonMenu.current
         var menuOpen by remember { mutableStateOf(false) }
         Surface(
@@ -129,7 +134,7 @@ fun LessonCard(
                         )
                         if (lesson.type != LessonType.OTHER) {
                             Spacer(Modifier.width(8.dp))
-                            TypeChip(lesson.type, past = timing == LessonTiming.PAST)
+                            TypeChip(lesson.type, past = faded)
                         }
                     }
                     Spacer(Modifier.height(4.dp))
@@ -146,7 +151,7 @@ fun LessonCard(
                     }
                     if (homework.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
-                        HomeworkLine(homework, if (timing == LessonTiming.PAST) faint else scheme.primary, secondaryText)
+                        HomeworkLine(homework, if (faded) faint else scheme.primary, secondaryText)
                     }
                 }
             }

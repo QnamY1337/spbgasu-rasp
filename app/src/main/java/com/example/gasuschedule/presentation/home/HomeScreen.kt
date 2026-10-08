@@ -186,7 +186,9 @@ private fun HomeContent(
     onOpenHomework: () -> Unit,
     listState: LazyListState,
 ) {
-    val timings = remember(state.lessons, state.now) { lessonTimings(state.lessons, state.now) }
+    val timings = remember(state.lessons, state.now, state.subjectFilter) {
+        lessonTimings(state.lessons, state.now, state.subjectFilter::isDisabled)
+    }
     val side = Modifier.padding(horizontal = 20.dp)
     LazyColumn(
         state = listState,
@@ -204,13 +206,15 @@ private fun HomeContent(
         item { DayTitle(state, side.padding(top = 8.dp)) }
         items(state.lessons, key = { it.id }) { lesson ->
             val index = state.lessons.indexOf(lesson)
+            val disabled = state.subjectFilter.isDisabled(lesson)
             TimelineRow(
                 lesson = lesson,
+                disabled = disabled,
                 timing = timings[lesson.id] ?: LessonTiming.UPCOMING,
                 first = index == 0,
                 last = index == state.lessons.lastIndex,
                 modifier = side,
-            ) { LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, it, homework = state.homework[lesson.id].orEmpty(), showTime = false) }
+            ) { LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, it, homework = state.homework[lesson.id].orEmpty(), showTime = false, disabled = disabled) }
         }
         if (state.lessons.isNotEmpty()) {
             item { CenteredDivider("Пар больше нет", side.padding(top = 8.dp)) }
@@ -223,6 +227,7 @@ private fun HomeContent(
 private fun TimelineRow(
     lesson: Lesson,
     timing: LessonTiming,
+    disabled: Boolean,
     first: Boolean,
     last: Boolean,
     modifier: Modifier = Modifier,
@@ -230,7 +235,7 @@ private fun TimelineRow(
 ) {
     val scheme = MaterialTheme.colorScheme
     val faint = GasuTheme.colors.textFaint
-    val past = timing == LessonTiming.PAST
+    val past = disabled || timing == LessonTiming.PAST
     val highlighted = timing == LessonTiming.CURRENT || timing == LessonTiming.NEXT
     val dotY = if (highlighted) 24.dp else 14.dp
     Row(modifier.height(IntrinsicSize.Min)) {

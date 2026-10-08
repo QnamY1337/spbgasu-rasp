@@ -40,7 +40,8 @@ class ScheduleNotificationsUseCase @Inject constructor(
             val today = LocalDate.now(clock)
             // На послезавтра — только для дедлайнов заданий (напоминание бывает за сутки).
             val window = repository.observeLessons(group, today, today.plusDays(2)).first()
-            val lessons = window.filter { !it.date.isAfter(today.plusDays(1)) }
+            // Отключённые в настройках пары не напоминают и не считаются первой парой дня.
+            val lessons = preferences.subjectFilter.first().enabled(window.filter { !it.date.isAfter(today.plusDays(1)) })
             val homeworkReminders = buildHomeworkReminders(
                 homework.observeAll().first(),
                 window,

@@ -15,7 +15,12 @@ enum class LessonTiming { PAST, CURRENT, NEXT, UPCOMING }
  * Статус каждой пары относительно [now]. NEXT — ближайшая пара сегодня, если сейчас пары нет
  * (перемена или утро до первой пары): её тоже выделяем, как требует спецификация.
  */
-fun lessonTimings(lessons: List<Lesson>, now: LocalDateTime): Map<String, LessonTiming> {
+fun lessonTimings(
+    lessons: List<Lesson>,
+    now: LocalDateTime,
+    /** Отключённые пары: не бывают "сейчас" и "далее". */
+    isDisabled: (Lesson) -> Boolean = { false },
+): Map<String, LessonTiming> {
     val today = now.toLocalDate()
     val time = now.toLocalTime()
     val result = lessons.associate { l ->
@@ -23,12 +28,13 @@ fun lessonTimings(lessons: List<Lesson>, now: LocalDateTime): Map<String, Lesson
             l.date.isBefore(today) -> LessonTiming.PAST
             l.date.isAfter(today) -> LessonTiming.UPCOMING
             !time.isBefore(l.endTime) -> LessonTiming.PAST
+            isDisabled(l) -> LessonTiming.UPCOMING
             !time.isBefore(l.startTime) -> LessonTiming.CURRENT
             else -> LessonTiming.UPCOMING
         }
     }.toMutableMap()
     if (LessonTiming.CURRENT !in result.values) {
-        lessons.filter { result[it.id] == LessonTiming.UPCOMING && it.date == today }
+        lessons.filter { result[it.id] == LessonTiming.UPCOMING && it.date == today && !isDisabled(it) }
             .minByOrNull { it.startTime }
             ?.let { result[it.id] = LessonTiming.NEXT }
     }

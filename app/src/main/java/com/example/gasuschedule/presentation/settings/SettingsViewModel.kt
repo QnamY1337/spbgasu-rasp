@@ -6,10 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.gasuschedule.domain.model.GeoPoint
 import com.example.gasuschedule.domain.model.HomeLocation
 import com.example.gasuschedule.domain.model.ScheduleNetworkException
+import com.example.gasuschedule.domain.model.LessonType
+import com.example.gasuschedule.domain.model.SubjectFilter
+import com.example.gasuschedule.domain.model.SubjectMode
 import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.AddressSearch
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
+import com.example.gasuschedule.domain.repository.ScheduleRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.repository.WidgetUpdater
 import com.example.gasuschedule.domain.usecase.SyncResult
@@ -23,11 +27,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import javax.inject.Inject
 
 /** Раздел "Дорога до вуза". */
@@ -37,6 +46,9 @@ data class RoadSettings(
     val bufferMinutes: Int = UserPreferencesRepository.DEFAULT_LEAVE_BUFFER_MINUTES,
     val leaveReminders: Boolean = true,
 )
+
+/** Предмет группы для раздела "Предметы"; [hasLectures] — есть ли смысл в режиме "без лекций". */
+data class SubjectInfo(val name: String, val hasLectures: Boolean)
 
 data class SettingsUiState(
     val group: String? = null,
@@ -49,6 +61,8 @@ data class SettingsUiState(
     val refreshing: Boolean = false,
     val road: RoadSettings = RoadSettings(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val subjects: List<SubjectInfo> = emptyList(),
+    val subjectFilter: SubjectFilter = SubjectFilter(),
 )
 
 private data class NotificationSettings(
@@ -65,9 +79,11 @@ data class AddressSearchState(
     val error: String? = null,
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferences: UserPreferencesRepository,
+    schedule: ScheduleRepository,
     private val sync: SyncScheduleUseCase,
     private val reminders: ReminderReplanTrigger,
     private val widgets: WidgetUpdater,
@@ -87,6 +103,18 @@ class SettingsViewModel @Inject constructor(
         ::RoadSettings,
     )
 
+    /** Все предметы группы за семестр, по алфавиту. */
+    private val subjects = preferences.groupName.flatMapLatest { group ->
+        if (group == null) flowOf(emptyList())
+        else schedule.observeLessons(group, LocalDate.of(2000, 1, 1), LocalDate.of(2100, 1, 1)).map { lessons ->
+            lessons.groupBy { it.subject }
+                .map { (name, list) -> SubjectInfo(name, list.any { it.type == LessonType.LECTURE }) }
+                .sortedBy { it.name.lowercase() }
+        }
+    }
+
+    private val appearance = combine(preferences.themeMode, subjects, preferences.subjectFilter, ::Triple)
+
     val state: StateFlow<SettingsUiState> = combine(
         combine(preferences.groupName, preferences.lastSyncAt, refreshing, ::Triple),
         combine(
@@ -97,8 +125,8 @@ class SettingsViewModel @Inject constructor(
             ::NotificationSettings,
         ),
         road,
-        preferences.themeMode,
-    ) { (group, lastSync, refreshing), (reminders, minutes, changes, homeworkHours), road, theme ->
+        appearance,
+    ) { (group, lastSync, refreshing), (reminders, minutes, changes, homeworkHours), road, (theme, subjects, filter) ->
         SettingsUiState(
             group = group,
             remindersEnabled = reminders,
@@ -109,6 +137,8 @@ class SettingsViewModel @Inject constructor(
             refreshing = refreshing,
             road = road,
             themeMode = theme,
+            subjects = subjects,
+            subjectFilter = filter,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
@@ -127,6 +157,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { preferences.setThemeMode(mode) }
+
+    /** Отключение предмета влияет на напоминания и "Пора выходить" — пересчитываем их. */
+    fun setSubjectMode(subject: String, mode: SubjectMode) = viewModelScope.launch {
+        preferences.setSubjectFilter(preferences.subjectFilter.first().with(subject, mode))
+        roadChanged()
+    }
 
     fun setChangeNotificationsEnabled(enabled: Boolean) = viewModelScope.launch {
         preferences.setChangeNotificationsEnabled(enabled)

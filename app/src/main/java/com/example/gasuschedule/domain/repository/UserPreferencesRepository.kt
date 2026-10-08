@@ -1,6 +1,7 @@
 package com.example.gasuschedule.domain.repository
 
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.SubjectFilter
 import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,10 @@ interface UserPreferencesRepository {
     /** Уведомлять "Пора выходить" перед первой парой дня. */
     val leaveRemindersEnabled: Flow<Boolean>
     suspend fun setLeaveRemindersEnabled(enabled: Boolean)
+
+    /** Отключённые предметы (целиком или только лекции). */
+    val subjectFilter: Flow<SubjectFilter>
+    suspend fun setSubjectFilter(filter: SubjectFilter)
 
     val themeMode: Flow<ThemeMode>
     suspend fun setThemeMode(mode: ThemeMode)

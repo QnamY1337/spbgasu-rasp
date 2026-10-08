@@ -84,6 +84,7 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
     var widget by remember { mutableStateOf(WidgetPin.state(context)) }
     var showWidgetHelp by remember { mutableStateOf(false) }
     var showHomeDialog by remember { mutableStateOf(false) }
+    var showSubjects by remember { mutableStateOf(false) }
     if (showWidgetHelp && widget.installed == 0) WidgetHelpDialog(onDismiss = { showWidgetHelp = false })
     // Разрешения меняются в системных настройках — перечитываем при каждом возвращении на экран.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -138,7 +139,17 @@ fun SettingsRoute(onChangeGroup: () -> Unit, viewModel: SettingsViewModel = hilt
         onLeaveReminders = { viewModel.setLeaveReminders(it) },
         onHomeworkHours = { viewModel.setHomeworkReminderHours(it) },
         onThemeMode = { viewModel.setThemeMode(it) },
+        onEditSubjects = { showSubjects = true },
     )
+
+    if (showSubjects) {
+        SubjectsDialog(
+            subjects = state.subjects,
+            filter = state.subjectFilter,
+            onMode = viewModel::setSubjectMode,
+            onDismiss = { showSubjects = false },
+        )
+    }
 
     if (showHomeDialog) {
         val address by viewModel.address.collectAsStateWithLifecycle()
@@ -212,6 +223,7 @@ fun SettingsScreen(
     onLeaveReminders: (Boolean) -> Unit = {},
     onHomeworkHours: (Int) -> Unit = {},
     onThemeMode: (ThemeMode) -> Unit = {},
+    onEditSubjects: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Scaffold(
@@ -241,6 +253,9 @@ fun SettingsScreen(
                     TextButton(onClick = onChangeGroup) { Text("Изменить", fontWeight = FontWeight.SemiBold) }
                 }
             }
+
+            SectionTitle("ПРЕДМЕТЫ")
+            SettingsCard { SubjectsRow(state.subjects, state.subjectFilter, onEditSubjects) }
 
             SectionTitle("ОФОРМЛЕНИЕ")
             SettingsCard {

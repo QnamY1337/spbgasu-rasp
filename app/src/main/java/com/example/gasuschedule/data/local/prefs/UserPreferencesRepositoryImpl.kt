@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import com.example.gasuschedule.domain.model.GeoPoint
 import com.example.gasuschedule.domain.model.HomeLocation
+import com.example.gasuschedule.domain.model.SubjectFilter
+import com.example.gasuschedule.domain.model.SubjectMode
 import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.model.TravelMode
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository.Companion.DEFAULT_LEAVE_BUFFER_MINUTES
@@ -13,6 +15,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository.Companion.DEFAULT_REMINDER_MINUTES
 import kotlinx.coroutines.flow.Flow
@@ -108,6 +111,20 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[HOMEWORK_REMINDER_HOURS] = hours }
     }
 
+    /** Хранится набором строк "РЕЖИМ|предмет". */
+    override val subjectFilter: Flow<SubjectFilter> = dataStore.data.map { p ->
+        SubjectFilter(
+            p[SUBJECT_MODES].orEmpty().mapNotNull { entry ->
+                val mode = runCatching { SubjectMode.valueOf(entry.substringBefore('|')) }.getOrNull()
+                mode?.let { entry.substringAfter('|') to it }
+            }.toMap(),
+        )
+    }.distinctUntilChanged()
+
+    override suspend fun setSubjectFilter(filter: SubjectFilter) {
+        dataStore.edit { p -> p[SUBJECT_MODES] = filter.modes.map { (subject, mode) -> "${mode.name}|$subject" }.toSet() }
+    }
+
     override val themeMode: Flow<ThemeMode> = dataStore.data.map { p ->
         p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM
     }.distinctUntilChanged()
@@ -117,6 +134,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     private companion object {
+        val SUBJECT_MODES = stringSetPreferencesKey("subject_modes")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val HOMEWORK_REMINDER_HOURS = intPreferencesKey("homework_reminder_hours")
         val HOME_LAT = doublePreferencesKey("home_lat")

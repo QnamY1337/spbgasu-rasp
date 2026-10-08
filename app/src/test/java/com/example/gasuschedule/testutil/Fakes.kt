@@ -14,6 +14,7 @@ import com.example.gasuschedule.domain.repository.HomeworkRepository
 import com.example.gasuschedule.domain.repository.ReminderReplanTrigger
 import com.example.gasuschedule.domain.repository.ReminderScheduler
 import com.example.gasuschedule.domain.repository.ScheduleRepository
+import com.example.gasuschedule.domain.model.SubjectFilter
 import com.example.gasuschedule.domain.model.ThemeMode
 import com.example.gasuschedule.domain.repository.UserPreferencesRepository
 import com.example.gasuschedule.domain.repository.WeatherRepository
@@ -96,6 +97,9 @@ class FakePreferences(group: String? = GROUP) : UserPreferencesRepository {
 
     override val leaveRemindersEnabled = MutableStateFlow(true)
     override suspend fun setLeaveRemindersEnabled(enabled: Boolean) { leaveRemindersEnabled.value = enabled }
+
+    override val subjectFilter = MutableStateFlow(SubjectFilter())
+    override suspend fun setSubjectFilter(filter: SubjectFilter) { subjectFilter.value = filter }
 
     override val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
     override suspend fun setThemeMode(mode: ThemeMode) { themeMode.value = mode }

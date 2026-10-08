@@ -420,7 +420,7 @@ private fun DayStrip(state: ScheduleUiState, days: List<LocalDate>, onSelect: (L
 
 @Composable
 private fun DayPage(date: LocalDate, lessons: List<Lesson>, state: ScheduleUiState, onBackToToday: (() -> Unit)?) {
-    val timings = remember(lessons, state.now) { lessonTimings(lessons, state.now) }
+    val timings = remember(lessons, state.now, state.subjectFilter) { lessonTimings(lessons, state.now, state.subjectFilter::isDisabled) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -442,7 +442,7 @@ private fun DayPage(date: LocalDate, lessons: List<Lesson>, state: ScheduleUiSta
             item { NoLessons() }
         } else {
             items(lessons, key = { it.id }) { lesson ->
-                LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, homework = state.homework[lesson.id].orEmpty())
+                LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, homework = state.homework[lesson.id].orEmpty(), disabled = state.subjectFilter.isDisabled(lesson))
             }
             item { CenteredDivider("Пар больше нет", Modifier.padding(top = 12.dp)) }
         }
@@ -506,7 +506,7 @@ private fun WeekTab(state: ScheduleUiState, onShowWeek: (Long) -> Unit, onOpenDa
 @Composable
 private fun WeekDay(date: LocalDate, lessons: List<Lesson>, isToday: Boolean, state: ScheduleUiState, onOpen: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val timings = remember(lessons, state.now) { lessonTimings(lessons, state.now) }
+    val timings = remember(lessons, state.now, state.subjectFilter) { lessonTimings(lessons, state.now, state.subjectFilter::isDisabled) }
     Column(Modifier.fillMaxWidth()) {
         Row(
             Modifier
@@ -531,7 +531,7 @@ private fun WeekDay(date: LocalDate, lessons: List<Lesson>, isToday: Boolean, st
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            lessons.forEach { LessonCard(it, timings[it.id] ?: LessonTiming.UPCOMING, state.now, homework = state.homework[it.id].orEmpty()) }
+            lessons.forEach { LessonCard(it, timings[it.id] ?: LessonTiming.UPCOMING, state.now, homework = state.homework[it.id].orEmpty(), disabled = state.subjectFilter.isDisabled(it)) }
         }
     }
 }
