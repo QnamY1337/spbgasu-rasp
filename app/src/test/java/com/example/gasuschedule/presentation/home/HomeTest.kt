@@ -147,4 +147,18 @@ class HomeTest {
         assertEquals("Укажите дом", line(d(28).atTime(20, 0), LeaveEstimate.NoHome).main)
         assertNull(roadLine(HomeUiState(now = d(28).atTime(20, 0))))
     }
+
+    @Test
+    fun `обеденный перерыв - между парами с промежутком от 30 минут`() {
+        val day = listOf(lesson(d(28), 3), lesson(d(28), 4).copy(startTime = LocalTime.of(15, 0), endTime = LocalTime.of(16, 30)))
+        with(breakAfter(day, 0)!!) {
+            assertEquals(LocalTime.of(14, 0), from)
+            assertEquals(LocalTime.of(15, 0), to)
+            assertEquals("Обеденный перерыв", title)
+        }
+        assertEquals("1 ч", breakLength(60))
+        assertNull("обычная перемена", breakAfter(mon, 0))
+        assertNull("после последней пары", breakAfter(day, 1))
+        assertEquals("Окно", breakAfter(listOf(lesson(d(28), 1), lesson(d(28), 4)), 0)!!.title)
+    }
 }

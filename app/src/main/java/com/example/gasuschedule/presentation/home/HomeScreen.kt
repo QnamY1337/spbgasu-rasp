@@ -37,6 +37,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import java.time.LocalTime
+import androidx.compose.ui.graphics.PathEffect
 import com.example.gasuschedule.R
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -222,6 +224,9 @@ private fun HomeContent(
                 last = index == state.lessons.lastIndex,
                 modifier = side,
             ) { LessonCard(lesson, timings[lesson.id] ?: LessonTiming.UPCOMING, state.now, it, homework = state.homework[lesson.id].orEmpty(), showTime = false, disabled = disabled) }
+            breakAfter(state.lessons, index)?.let { gap ->
+                BreakRow(gap, state.now.takeIf { state.shownDate == state.today }?.toLocalTime(), side.padding(top = 12.dp))
+            }
         }
         if (state.lessons.isNotEmpty()) {
             item { CenteredDivider("Пар больше нет", side.padding(top = 8.dp)) }
@@ -268,6 +273,73 @@ private fun TimelineRow(
                 },
         )
         card(Modifier.weight(1f))
+    }
+}
+
+/** Длинный промежуток между парами: с 30 минут — обед, больше полутора часов — окно. */
+internal data class LessonBreak(val from: LocalTime, val to: LocalTime) {
+    val minutes: Long get() = Duration.between(from, to).toMinutes()
+    val title: String get() = if (minutes > 90) "Окно" else "Обеденный перерыв"
+}
+
+/** Перерыв после пары [index], если до следующей не меньше 30 минут; обычные перемены не показываем. */
+internal fun breakAfter(lessons: List<Lesson>, index: Int): LessonBreak? {
+    val current = lessons.getOrNull(index) ?: return null
+    val next = lessons.getOrNull(index + 1) ?: return null
+    if (next.startTime == current.startTime) return null // подгруппы в одном слоте
+    val gap = LessonBreak(current.endTime, next.startTime)
+    return gap.takeIf { it.minutes >= 30 }
+}
+
+/** "1 ч", "40 мин", "1 ч 20 мин". */
+internal fun breakLength(minutes: Long): String = when {
+    minutes < 60 -> "$minutes мин"
+    minutes % 60 == 0L -> "${minutes / 60} ч"
+    else -> "${minutes / 60} ч ${minutes % 60} мин"
+}
+
+/** Строка таймлайна между парами: рельса без точки и карточка перерыва. Идёт сейчас — выделена. */
+@Composable
+private fun BreakRow(gap: LessonBreak, now: LocalTime?, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val active = now != null && !now.isBefore(gap.from) && now.isBefore(gap.to)
+    Row(modifier.height(IntrinsicSize.Min)) {
+        Box(Modifier.width(52.dp))
+        Box(
+            Modifier
+                .width(24.dp)
+                .fillMaxHeight()
+                .drawBehind {
+                    drawLine(
+                        scheme.outlineVariant,
+                        Offset(size.width / 2, 0f),
+                        Offset(size.width / 2, size.height),
+                        strokeWidth = 2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())),
+                    )
+                },
+        )
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = MaterialTheme.shapes.medium,
+            color = if (active) scheme.primaryContainer else scheme.background,
+            border = BorderStroke(1.dp, if (active) scheme.primary else scheme.outlineVariant),
+        ) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    gap.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (active) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${gap.from}–${gap.to} · ${breakLength(gap.minutes)}",
+                    style = MonoStyles.label,
+                    color = if (active) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
